@@ -1,9 +1,10 @@
 from typing import Union, Tuple, List
+import os
 
 import torch
 
 
-__all__ = ["device_handler", "tuple_handler"]
+__all__ = ["device_handler", "workers_handler", "tuple_handler"]
 
 
 def device_handler(value: str = "auto") -> str:
@@ -51,6 +52,50 @@ def device_handler(value: str = "auto") -> str:
         device = "cuda"
 
     return device
+
+
+def workers_handler(value: Union[int, float]) -> int:
+    """
+    Calculate the number of workers based on an input value.
+
+    Args:
+        value (int | float): The input value to determine the number of workers.
+            Int for a specific numbers. \
+            Float for a specific portion. \
+            Set to 0 to use all available cores.
+
+    Returns:
+        int: The computed number of workers for parallel processing.
+    """
+
+    # Get max workers
+    max_workers = os.cpu_count()
+
+    # If value is int
+    if isinstance(value, int):
+        if value < 0:
+            workers = 1
+        elif value == 0 or value > max_workers:
+            workers = max_workers
+        else:
+            workers = value
+
+    # If value is float
+    elif isinstance(value, float):
+        if value < 0:
+            workers = 1
+        elif value > 1:
+            workers = max_workers
+        else:
+            workers = int(max_workers * value)
+
+    # Wrong type
+    else:
+        raise TypeError(
+            f"Workers value must be Int or Float. Got {type(workers)} instead."
+        )
+
+    return workers
 
 
 def tuple_handler(value: Union[int, List[int], Tuple[int]], max_dim: int) -> Tuple:
