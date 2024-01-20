@@ -1,20 +1,21 @@
 from pathlib import Path
+import argparse
 
 import cv2
 
 from modules import VideoProcessing, AutoLabeling
 
 
-def main():
+def main(args):
     # -------------
     # Configuration
     PROCESSER = VideoProcessing()
 
-    LABELER = AutoLabeling(model="silueta", device="auto", tensorrt=False)
+    LABELER = AutoLabeling(model="silueta", device=args.deivce, tensorrt=False)
 
-    DATA_PATH = Path("video")
+    DATA_PATH = Path(args.path)
 
-    SAVE_PATH = Path("data")
+    SAVE_PATH = Path(args.save)
 
     IMAGE_SIZE = 640
 
@@ -72,4 +73,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Configurate arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--path", type=str, required=True)
+    parser.add_argument("-s", "--save", type=str, required=True, default="dataset")
+    parser.add_argument("-d", "--device", type=str, required=False, default="auto")
+    args = parser.parse_args()
+
+    main(args)
