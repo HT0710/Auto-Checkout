@@ -1,23 +1,29 @@
 from pathlib import Path
-import argparse
 
+from omegaconf import DictConfig
+import shutil
+import hydra
 import cv2
 
-from modules import VideoProcessing, AutoLabeling
+from modules import VideoProcessing, AutoLabeling, tuple_handler
 
 
-def main(args):
-    # -------------
-    # Configuration
+@hydra.main(config_path="./configs", config_name="run", version_base="1.3")
+def main(cfg: DictConfig):
+    # Remove the hydra outputs
+    shutil.rmtree("outputs")
+
+    # -----------
+    # Configurate
+    DATA_PATH = Path(cfg["data_path"])
+
+    SAVE_PATH = Path(cfg["save_path"])
+
+    IMAGE_SIZE = tuple_handler(cfg["image_size"], 2)
+
     PROCESSER = VideoProcessing()
 
-    LABELER = AutoLabeling(model="silueta", device=args.deivce, tensorrt=False)
-
-    DATA_PATH = Path(args.path)
-
-    SAVE_PATH = Path(args.save)
-
-    IMAGE_SIZE = 640
+    LABELER = AutoLabeling(**cfg["labeling"])
 
     # -----
     # Setup
@@ -39,6 +45,9 @@ def main(args):
     # Check all videos
     extensions = (".mp4", ".avi", ".mkv", ".mov", ".flv", ".mpg")
     video_paths = (video for ext in extensions for video in DATA_PATH.rglob("*" + ext))
+
+    # ---
+    # Run
 
     # Iter videos
     for video_path in video_paths:
@@ -73,11 +82,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # Configurate arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", type=str, required=True)
-    parser.add_argument("-s", "--save", type=str, required=True, default="dataset")
-    parser.add_argument("-d", "--device", type=str, required=False, default="auto")
-    args = parser.parse_args()
-
-    main(args)
+    main()

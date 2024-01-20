@@ -3,6 +3,9 @@ from typing import Union, Tuple, List
 import torch
 
 
+__all__ = ["device_handler", "tuple_handler"]
+
+
 def device_handler(value: str = "auto") -> str:
     """
     Handles the specification of device choice.

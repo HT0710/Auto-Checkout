@@ -53,3 +53,6 @@ pip3 install torch torchvision --index-url $index_url
 
 # Install ultralytics for YoloV8
 pip3 install ultralytics
+
+# Others
+pip3 install rootutils hydra-core==1.3.0

@@ -1,0 +1,22 @@
+# Configuration for run.py
+
+
+# Video folder path
+data_path: video
+
+# Save folder path
+save_path: dataset
+
+# Image size
+image_size: 640
+
+# AutoLabeling
+labeling:
+  # Rembg model
+  model: silueta
+
+  # Device for computing ('cpu' or 'cuda' or 'auto')
+  device: auto
+
+  # Using TensorRT (CUDA only)
+  tensorrt: false
