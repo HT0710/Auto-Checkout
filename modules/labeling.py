@@ -4,7 +4,7 @@ from rembg import remove, new_session
 import numpy as np
 import cv2
 
-from utils import device_handler
+from .utils import device_handler
 
 
 class AutoLabeling:

@@ -2,49 +2,73 @@ from pathlib import Path
 
 import cv2
 
-from processing import VideoProcessing
-from labeling import AutoLabeling
+from modules import VideoProcessing, AutoLabeling
 
 
 def main():
-    # Define modules
+    # -------------
+    # Configuration
     PROCESSER = VideoProcessing()
-    # LABELER = AutoLabeling(model="u2net")
 
-    # Data path
+    LABELER = AutoLabeling(model="silueta", device="auto", tensorrt=False)
+
     DATA_PATH = Path("video")
 
     SAVE_PATH = Path("data")
 
-    # Get all folders
-    folders = (folder for folder in DATA_PATH.iterdir() if folder.is_dir())
+    IMAGE_SIZE = 640
 
-    # Iter folders
-    for folder in folders:
-        # Get all videos
-        files = (file for file in folder.iterdir() if file.is_file())
+    # -----
+    # Setup
 
-        # Iter videos
-        for file in files:
-            # Process video
-            # Load
-            video = PROCESSER.load(str(file))
+    # Define data folder
+    images_path = SAVE_PATH / "images"
+    labels_path = SAVE_PATH / "labels"
 
-            # Subsampling
-            video = PROCESSER.subsample(video, 3)
+    # Create data folder
+    images_path.mkdir(parents=True, exist_ok=True)
+    labels_path.mkdir(parents=True, exist_ok=True)
 
-            # Resize
-            video = PROCESSER.resize(video, 640)
+    # Check classes
+    class_folders = sorted(
+        [folder for folder in DATA_PATH.iterdir() if folder.is_dir()]
+    )
+    classes = {folder.name: i for i, folder in enumerate(class_folders)}
 
-            for frame in video:
-                # x, y, w, h = LABELER.get_bounding_box(frame)
+    # Check all videos
+    extensions = (".mp4", ".avi", ".mkv", ".mov", ".flv", ".mpg")
+    video_paths = (video for ext in extensions for video in DATA_PATH.rglob("*" + ext))
 
-                # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+    # Iter videos
+    for video_path in video_paths:
+        # Process video
+        # Load
+        video = PROCESSER.load(path=str(video_path))
 
-                cv2.imshow("abc", frame)
+        # Subsampling
+        video = PROCESSER.subsample(video=video, value=3)
 
-                if cv2.waitKey(30) & 0xFF == ord("q"):
-                    break
+        # Resize
+        video = PROCESSER.resize(video=video, size=IMAGE_SIZE)
+
+        # Iter frames
+        for i, frame in enumerate(video):
+            # Create save name
+            formatted_name = f"{video_path.parent.name}_{video_path.stem}_{i}"
+
+            # Create save path
+            image_path = f"{images_path}/{formatted_name}.jpg"
+            label_path = f"{labels_path}/{formatted_name}.txt"
+
+            # Save image
+            cv2.imwrite(filename=image_path, img=frame)
+
+            # Get normalized label
+            label = [str(i / IMAGE_SIZE) for i in LABELER.get_bounding_box(frame)]
+
+            # Save label
+            with open(label_path, "w+") as f:
+                f.write(f"{classes[video_path.parent.name]} {' '.join(label)}")
 
 
 if __name__ == "__main__":
