@@ -1,3 +1,5 @@
+from typing import List
+
 from rembg import remove, new_session
 import numpy as np
 import cv2
@@ -13,9 +15,10 @@ class AutoLabeling:
 
         For more models information: https://github.com/danielgatis/rembg
         """
-        self.session = new_session(model)
+        self._session = new_session(model)
+        self._contour_threshold = 20
 
-    def remove_background(self, image: np.ndarray):
+    def _remove_background(self, image: np.ndarray) -> np.ndarray:
         """
         Removes the background from the input image using the initialized model.
 
@@ -25,9 +28,9 @@ class AutoLabeling:
         Returns:
             np.ndarray: The image with the background removed.
         """
-        return remove(data=image, session=self.session)
+        return remove(data=image, session=self._session)
 
-    def find_contours(self, image: np.ndarray, threshold: int):
+    def _find_contours(self, image: np.ndarray, threshold: int):
         """
         Finds contours in the given image using a specified threshold.
 
@@ -45,7 +48,7 @@ class AutoLabeling:
         )
         return contours
 
-    def get_bounding_box(self, image):
+    def get_bounding_box(self, image: np.ndarray) -> List[int]:
         """
         Finds the bounding box coordinates of the main object in the image.
 
@@ -55,13 +58,13 @@ class AutoLabeling:
         Returns:
             list: A list containing the x, y, width, and height of the bounding box.
         """
-        removed = self.remove_background(image)
-        contours = self.find_contours(removed, threshold=20)
+        removed = self._remove_background(image)
+        contours = self._find_contours(removed, threshold=self._contour_threshold)
         contour = max(contours, key=cv2.contourArea)
         x, y, w, h = cv2.boundingRect(contour)
         return [x, y, w, h]
 
-    def get_bounding_coordinates(self, image):
+    def get_bounding_coordinates(self, image: np.ndarray) -> List[List[int]]:
         """
         Finds the edge points of the main object in the image.
 
@@ -69,11 +72,11 @@ class AutoLabeling:
             image: The input image.
 
         Returns:
-            list: A list of edge points represented as (x, y) coordinates.
+            list: A list of edge points represented as [x, y] coordinates.
         """
-        removed = self.remove_background(image)
-        contours = self.find_contours(removed, threshold=20)
+        removed = self._remove_background(image)
+        contours = self._find_contours(removed, threshold=self._contour_threshold)
         edge_points = [
-            (x, y) for contour in contours for point in contour for x, y in [point[0]]
+            [x, y] for contour in contours for point in contour for x, y in [point[0]]
         ]
         return edge_points
