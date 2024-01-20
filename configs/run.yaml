@@ -1,22 +1,35 @@
 # Configuration for run.py
 
 
-# Video folder path
-data_path: video
 
-# Save folder path
-save_path: dataset
+# Dataset
+data:
+  # Video folder path
+  data_path: video
 
-# Image size
-image_size: 640
+  # Save folder path
+  save_path: dataset
+
+  # Video subsampling
+  subsample: 3
+
+  # Train, val, test size
+  split_size: [0.7, 0.2, 0.1]
+
+  # Image size
+  image_size: 640
+
+  # Number of workers
+  num_workers: 0.6
+
 
 # AutoLabeling
 labeling:
-  # Rembg model
-  model: silueta
+  # Rembg model. For more detail: https://github.com/danielgatis/rembg?tab=readme-ov-file#models
+  model: u2net
 
   # Device for computing ('cpu' or 'cuda' or 'auto')
   device: auto
 
   # Using TensorRT (CUDA only)
-  tensorrt: false
+  tensorrt: true
