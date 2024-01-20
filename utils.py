@@ -9,7 +9,7 @@ def device_handler(value: str = "auto") -> str:
     Handles the specification of device choice.
 
     Args:
-        value (str): The device specification. Valid options: ["auto", "cpu", "cuda", "cuda:[device]"]. Default to "auto".
+        value (str): The device specification. Valid options: ["auto", "cpu", "cuda"]. Default to "auto".
 
     Returns:
         str: The selected device string.
@@ -36,11 +36,11 @@ def device_handler(value: str = "auto") -> str:
         case "gpu" | value.startswith("cuda"):
             if not torch.cuda.is_available():
                 raise ValueError("CUDA device not found.")
-            device = value if ":" in value else "cuda"
+            device = "cuda"
 
         case _:
             raise ValueError(
-                f'Device options: ["auto", "cpu", "cuda", "cuda:[device]"]. Got {value} instead.'
+                f'Device options: ["auto", "cpu", "cuda"]. Got {value} instead.'
             )
 
     return device
