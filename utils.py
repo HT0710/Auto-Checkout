@@ -1,5 +1,4 @@
 from typing import Union, Tuple, List
-import os
 
 import torch
 
@@ -28,50 +27,27 @@ def device_handler(value: str = "auto") -> str:
     # Prepare
     value = value.strip().lower()
 
-    # Check options
-    match value:
-        case "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+    # Check value
+    if not (value in ["auto", "cpu", "gpu"] or value.startswith("cuda")):
+        raise ValueError(
+            f'Device options: ["auto", "cpu", "cuda"]. Got {value} instead.'
+        )
 
-        case "gpu" | value.startswith("cuda"):
-            if not torch.cuda.is_available():
-                raise ValueError("CUDA device not found.")
-            device = "cuda"
+    # Case 'auto'
+    if value == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        case _:
-            raise ValueError(
-                f'Device options: ["auto", "cpu", "cuda"]. Got {value} instead.'
-            )
+    # Case 'cpu'
+    elif value == "cpu":
+        device = "cpu"
+
+    # Case 'gpu' or 'cuda'
+    elif value == "gpu" or value.startswith("cuda"):
+        if not torch.cuda.is_available():
+            raise ValueError("CUDA device not found.")
+        device = "cuda"
 
     return device
-
-
-def workers_handler(value: Union[int, float]) -> int:
-    """
-    Calculate the number of workers based on an input value.
-
-    Args:
-        value (int | float): The input value to determine the number of workers. \
-            Int for a specific numbers. \
-            Float for a specific portion. \
-            Set to 0 to use all available cores.
-
-    Returns:
-        int: The computed number of workers for parallel processing.
-    """
-    max_workers = os.cpu_count()
-    match value:
-        case int():
-            workers = value
-        case float():
-            workers = int(max_workers * value)
-        case _:
-            workers = 0
-    if not (-1 < workers < max_workers):
-        raise ValueError(
-            f"Number of workers is out of bounds. Min: 0 | Max: {max_workers}"
-        )
-    return workers
 
 
 def tuple_handler(value: Union[int, List[int], Tuple[int]], max_dim: int) -> Tuple:
