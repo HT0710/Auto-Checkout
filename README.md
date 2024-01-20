@@ -32,4 +32,8 @@ Run `./setup-cuda.sh`
 ```
 
 ### Run
-Run `python3 run.py --path path/to/video_folder --save path/to/save_folder`
+Change configurations in `configs/run.yaml`
+
+```python
+python3 run.py
+```
