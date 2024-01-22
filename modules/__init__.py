@@ -1,1 +1,1 @@
-from .labeling import DatasetGenerator
+from .data import DatasetGenerator
