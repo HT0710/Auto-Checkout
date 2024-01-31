@@ -7,9 +7,6 @@ data:
   # Video folder path
   data_path: video
 
-  # Save folder path
-  save_path: dataset
-
   # Video subsampling
   subsample: 3
 
@@ -32,4 +29,4 @@ labeling:
   device: auto
 
   # Using TensorRT (CUDA only)
-  tensorrt: true
+  tensorrt: false
