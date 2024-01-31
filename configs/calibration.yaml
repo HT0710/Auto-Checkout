@@ -1,0 +1,9 @@
+
+
+grid_size: [5, 17]
+
+frame_size: [640, 480]
+
+diameter: 20
+
+refine: false
