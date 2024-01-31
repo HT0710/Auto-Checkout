@@ -1,5 +1,5 @@
 from pathlib import Path, PosixPath
-from typing import List, Tuple
+from typing import Any, List, Tuple
 import random
 import shutil
 import psutil
@@ -53,6 +53,20 @@ class DatasetGenerator:
         }
         self.video_extensions = [".mp4", ".avi", ".mkv", ".mov", ".flv", ".mpg"]
         self.image_extensions = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"]
+
+    def _benchmark(self, data: List[Any]) -> int:
+        """
+        Calcute chunksize based on data size and cpu parallel power
+
+        Args:
+            data (List[Any]): List of data to be processed.
+
+        Returns:
+            Int: Chunksize calculated.
+        """
+        return max(
+            1, round(len(data) / (self.workers * psutil.cpu_freq().max / 1000) / 4)
+        )
 
     def _process_video(self, path: PosixPath) -> None:
         """
@@ -153,11 +167,6 @@ class DatasetGenerator:
             3. Label generation
             4. Create data.yaml
         """
-        # Calcute chunksize based on cpu parallel power
-        benchmark = lambda x: max(
-            1, round(len(x) / (self.workers * psutil.cpu_freq().max / 1000) / 4)
-        )
-
         # ----------------
         # 1. Process video
 
@@ -173,7 +182,7 @@ class DatasetGenerator:
             self._process_video,
             video_paths,
             max_workers=self.workers,
-            chunksize=benchmark(video_paths),
+            chunksize=self._benchmark(video_paths),
             desc="Process video",
             colour="cyan",
         )
