@@ -55,4 +55,4 @@ pip3 install torch torchvision --index-url $index_url
 pip3 install ultralytics
 
 # Others
-pip3 install rootutils hydra-core==1.3.0
+pip3 install rich rootutils hydra-core==1.3.0
