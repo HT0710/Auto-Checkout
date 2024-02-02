@@ -1,45 +1,68 @@
 from rich import print, traceback
 from rich.prompt import Prompt
 
-from modules import DatasetGenerator
-from calibration import Calibrate
-from utils import load_config
+from modules import DatasetGenerator, Calibrate
+from modules.utils import load_config
 
 traceback.install()
 
 
+def print_steps(contents: list) -> None:
+    for step in contents:
+        print(step) if isinstance(step, str) else step()
+
+
 def main():
     # Calibration
-    calibrator = Calibrate(**load_config("configs/calibration.yaml"))
+    CALIBRATOR = Calibrate(**load_config("configs/calibration.yaml"))
 
     # Data generate
-    data_gen_cfg = load_config("configs/run.yaml")
-    data_gen = DatasetGenerator(**data_gen_cfg["data"], **data_gen_cfg["labeling"])
+    DATAGEN = DatasetGenerator(**load_config("configs/data_gen.yaml"))
 
+    # Menus interface
+    MENUS = {
+        "main": [
+            "-" * 21,
+            "[bold]Auto-Checkout Program[/]",
+            "-" * 21,
+            "1. Calibration",
+            "2. Generate dataset",
+            "3. Quit\n",
+        ],
+        "calib": [
+            "-" * 15,
+            "[bold]> Calibration <[/]\n",
+            "1. Preparing...",
+            CALIBRATOR.prepare,
+            "\n2. Calibrating...",
+            CALIBRATOR.run,
+            "\n[bold][green]-- Done --[/][/]\n",
+        ],
+        "data_gen": [
+            "-" * 21,
+            "[bold]> Dataset Generator <[/]\n",
+            DATAGEN.run,
+            "\n[bold][green]-- Done --[/][/]\n",
+        ],
+    }
+
+    # Choices loop
     while True:
-        print()
-        print("[bold]Auto-Checkout Program[/]")
-        print()
-        print("1. Dataset generate")
-        print("2. Calibration")
-        print("3. Quit")
-        print()
+        print_steps(MENUS["main"])
 
         choice = Prompt.ask("Enter", choices=["1", "2", "3"])
         print()
 
         if choice == "1":
-            print("Run Dataset Generator")
-            data_gen.run()
+            print_steps(MENUS["calib"])
+
         elif choice == "2":
-            print("Run Calibration")
-            print("Preparing")
-            calibrator.prepare(camera_id=int(Prompt.ask("Enter Camera ID")))
-            print("Calibrating")
-            calibrator.run()
+            print_steps(MENUS["data_gen"])
+
         elif choice == "3":
             print("[red]Exit program[/]")
             break
+
         else:
             continue
 
