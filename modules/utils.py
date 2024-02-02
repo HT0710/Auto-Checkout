@@ -129,7 +129,7 @@ def tuple_handler(value: Union[int, List[int], Tuple[int]], max_dim: int) -> Tup
     else:
         try:
             output = tuple(value)
-        except:
+        except TypeError:
             raise TypeError(
                 f"The 'value' parameter must be an int or tuple or list. Got {type(value)} instead."
             )

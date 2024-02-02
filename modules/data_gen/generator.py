@@ -9,9 +9,9 @@ from tqdm.contrib.concurrent import process_map
 from tqdm import tqdm
 import cv2
 
+from ..utils import workers_handler, device_handler, tuple_handler
 from .processing import VideoProcessing
 from .labeling import AutoLabeling
-from ..utils import *
 
 
 class DatasetGenerator:
@@ -126,7 +126,7 @@ class DatasetGenerator:
         ]
 
         # Define progress bar
-        progress = tqdm(total=len(data), desc=f"Split data", colour="cyan")
+        progress = tqdm(total=len(data), desc="Split data", colour="cyan")
 
         # Move to new destination
         for data_paths, save_folder in zip(splited_paths, save_folders):
@@ -143,7 +143,7 @@ class DatasetGenerator:
         """
 
         # Iter data
-        for path in tqdm(data, desc=f"Generate label", colour="cyan"):
+        for path in tqdm(data, desc="Generate label", colour="cyan"):
             # Define save path
             images_folder = path.parent / "images"
             labels_folder = path.parent / "labels"
@@ -237,11 +237,11 @@ class DatasetGenerator:
             f.write(
                 "\n".join(
                     [
-                        f"# Configuration for dataset\n",
+                        "# Configuration for dataset\n",
                         f"path: {self.save_path.resolve()}\n",
-                        f"train: ../train/images",
-                        f"val: ../val/images",
-                        f"test: ../test/images\n",
+                        "train: ../train/images",
+                        "val: ../val/images",
+                        "test: ../test/images\n",
                         f"nc: {len(self.classes)}",
                         f"names: {self.classes}",
                     ]
