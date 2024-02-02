@@ -1,10 +1,11 @@
 from typing import Union, Tuple, List
+import yaml
 import os
 
 import torch
 
 
-__all__ = ["device_handler", "workers_handler", "tuple_handler"]
+__all__ = ["device_handler", "workers_handler", "tuple_handler", "load_config"]
 
 
 def device_handler(value: str = "auto") -> str:
@@ -137,3 +138,30 @@ def tuple_handler(value: Union[int, List[int], Tuple[int]], max_dim: int) -> Tup
             f"The lenght of 'value' parameter must be equal to {max_dim}. Got {len(output)} instead."
         )
     return output
+
+
+def load_config(file_path: str):
+    """
+    Loads a YAML configuration file.
+
+    Args:
+        file_path (str): Path to the YAML configuration file.
+
+    Returns:
+        dict: Configuration parameters.
+    """
+    # Check if the file exists
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Config file not found: {file_path}")
+
+    try:
+        # Attempt to load the YAML file
+        with open(file_path, "r") as file:
+            config = yaml.safe_load(file)
+        return config
+    except yaml.YAMLError as e:
+        # Handle YAML parsing errors
+        raise ValueError(f"Error parsing YAML in {file_path}: {e}")
+    except Exception as e:
+        # Handle other unexpected errors
+        raise RuntimeError(f"Unexpected error while loading config: {e}")
