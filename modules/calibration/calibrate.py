@@ -7,7 +7,7 @@ from rich import print
 import numpy as np
 import cv2
 
-from utils import tuple_handler
+from ..utils import tuple_handler
 
 
 class Calibrate:
@@ -27,8 +27,8 @@ class Calibrate:
         self.frame_size = tuple_handler(frame_size, max_dim=2)
         self.diameter = int(diameter)
         self.refine = bool(refine)
-        self.images_path = Path("calibration/images")
-        self.save_path = Path("calibration/calibration_params.npz")
+        self.images_path = Path("modules/calibration/images")
+        self.save_path = Path("modules/calibration/calibration_params.npz")
 
     def _detect_board(self, image: np.ndarray) -> Union[np.ndarray, None]:
         """
@@ -171,14 +171,13 @@ class Calibrate:
         image_points = []
 
         # Get all images
-        images = self.images_path.glob("*.jpg")
+        images_path = list(self.images_path.glob("*.jpg"))
 
-        if not list(images):
+        if not images_path:
             raise ValueError("Cannot found any images for calibration.")
 
-        for image in images:
-            image = cv2.imread(str(image))
-
+        for path in images_path:
+            image = cv2.imread(str(path))
             # Detect pattern
             corners = self._detect_board(image)
 
