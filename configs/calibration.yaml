@@ -1,9 +1,14 @@
+# Configuration for calibration
 
 
+# Board grid size
 grid_size: [5, 17]
 
+# Frame size
 frame_size: [640, 480]
 
+# Diameter
 diameter: 20
 
+# Enable results refinement
 refine: false
