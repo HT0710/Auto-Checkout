@@ -1,5 +1,6 @@
 from pathlib import Path, PosixPath
 from typing import Any, List, Tuple
+from datetime import datetime
 import random
 import shutil
 import psutil
@@ -10,7 +11,7 @@ import cv2
 
 from .processing import VideoProcessing
 from .labeling import AutoLabeling
-from .utils import *
+from ..utils import *
 
 
 class DatasetGenerator:
@@ -18,6 +19,7 @@ class DatasetGenerator:
         self,
         data_path: str = "video",
         save_path: str = "dataset",
+        save_name: str = None,
         subsample: int = 3,
         image_size: int = 640,
         split_size: Tuple = (0.7, 0.2, 0.1),
@@ -41,7 +43,7 @@ class DatasetGenerator:
             tensorrt (bool): Flag indicating whether to use TensorRT for inference.
         """
         self.data_path = Path(data_path)
-        self.save_path = Path(save_path)
+        self.save_path = self._check_save(save_path, save_name)
         self.subsample = subsample
         self.image_size = image_size
         self.split_size = tuple_handler(split_size, max_dim=3)
@@ -53,6 +55,17 @@ class DatasetGenerator:
         }
         self.video_extensions = [".mp4", ".avi", ".mkv", ".mov", ".flv", ".mpg"]
         self.image_extensions = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"]
+
+    def _check_save(self, path: str, name: str) -> PosixPath:
+        # Check name
+        if not name:
+            name = datetime.now().strftime("%d-%b-%y")
+        # Create path
+        save_path = Path(path) / name
+        # Create directory
+        save_path.mkdir(parents=True, exist_ok=True)
+
+        return save_path
 
     def _benchmark(self, data: List[Any]) -> int:
         """
@@ -82,9 +95,6 @@ class DatasetGenerator:
         video = VideoProcessing.subsample(video, value=self.subsample)
         # Resize
         video = VideoProcessing.resize(video, size=self.image_size)
-
-        # Create save path
-        self.save_path.mkdir(parents=True, exist_ok=True)
 
         # Save frames
         for i, frame in enumerate(video):
@@ -223,15 +233,15 @@ class DatasetGenerator:
 
         # -------------------
         # 4. Create data.yaml
-
         with open(str(self.save_path / "data.yaml"), "w+") as f:
             f.write(
                 "\n".join(
                     [
-                        f"path: {self.save_path.resolve()}",
+                        f"# Configuration for dataset\n",
+                        f"path: {self.save_path.resolve()}\n",
                         f"train: ../train/images",
                         f"val: ../val/images",
-                        f"test: ../test/images",
+                        f"test: ../test/images\n",
                         f"nc: {len(self.classes)}",
                         f"names: {self.classes}",
                     ]
