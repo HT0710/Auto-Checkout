@@ -62,36 +62,47 @@ class Calibrate:
 
         return corners
 
-    def prepare(self, camera_id: int) -> None:
+    def prepare(self) -> None:
         """
         Prepares the calibration by capturing images from the specified camera.
-
-        Args:
-            camera_id (int): ID of the camera to be used for calibration.
-
-        Raises:
-            ValueError: If the camera cannot be opened.
         """
-
-        # Capture camera
-        cap = cv2.VideoCapture(camera_id)
-
-        # Check capture
-        if not cap.isOpened():
-            raise ValueError(f"Cannot open camera id: {camera_id}")
 
         # Check images path
         if self.images_path.exists() and any(self.images_path.iterdir()):
-            confirm = Prompt.ask("Delete old calibrate images? (y/N)").strip().lower()
+            confirm = Prompt.ask("Delete old calibration images? \[y/N]")
 
-            if confirm in ["y", "yes"]:
+            if confirm.strip().lower().startswith("y"):
                 shutil.rmtree(str(self.images_path))
             else:
                 return
 
+        # Check camera
+        while True:
+            try:
+                # Get camera id
+                cam_id = int(Prompt.ask("Enter camera ID").strip())
+
+                # Capture camera
+                cap = cv2.VideoCapture(cam_id)
+
+                # Check capture
+                if cap.isOpened():
+                    break
+
+                print(f"[red]Cannot open camera ID: {cam_id}[/]")
+
+                # Re-try
+                confirm = Prompt.ask("Try again \[y/N]")
+
+                if not confirm.strip().lower().startswith("y"):
+                    return
+
+            except ValueError:
+                print("[red]Invalid input. Please enter a valid integer.[/]")
+
         # Prepare
-        i = 0
         self.images_path.mkdir(parents=True, exist_ok=True)
+        i = 0
 
         # Open camera
         while cap.isOpened():
@@ -125,20 +136,22 @@ class Calibrate:
                 cv2.putText(review, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
             # Review
-            cv2.imshow(f"Camera {camera_id}", review)
+            cv2.imshow(f"Camera {cam_id}", review)
 
             # Delay
             key = cv2.waitKey(1) & 0xFF
 
             # Check Quit signal
             if key == ord("q"):
+                cap.release()
+                cv2.destroyAllWindows()
                 break
 
             # Check Save signal
             elif key == ord("s"):
                 # Check detection
                 if corners is None:
-                    print("Cannot detect pattern, image is not saved.")
+                    print("[yellow]Cannot detect pattern, image is not saved.[/]")
                     continue
 
                 # Save image
@@ -174,7 +187,8 @@ class Calibrate:
         images_path = list(self.images_path.glob("*.jpg"))
 
         if not images_path:
-            raise ValueError("Cannot found any images for calibration.")
+            print("[red]Cannot found any images for calibration.[/]")
+            return
 
         for path in images_path:
             image = cv2.imread(str(path))
