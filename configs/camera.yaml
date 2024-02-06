@@ -1,0 +1,27 @@
+# Configuration for camera
+
+
+# ID of camera device
+device_id: 0
+
+# Frame delay (millisecond)
+delay: 1
+
+# Process frequency
+subsampling: 1
+
+# Video resolution
+resolution: null
+
+# Record video
+record:
+  # Save destination
+  path: records
+
+  # Save resolution
+  resolution: null
+
+# Video debug
+debug:
+  # Show fps
+  fps: true
