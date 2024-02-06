@@ -1,0 +1,8 @@
+# Configuration for ArUco detection
+
+
+# Type of the ArUco dictionary (4x4, 5x5, 6x6, 7x7)
+dictionary_type: 7x7
+
+# Size of the ArUco dictionary (50, 100 ,250, 1000)
+size: 1000
