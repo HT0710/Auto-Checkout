@@ -27,3 +27,6 @@ optimize: true
 
 # Backend to be used for model optimization
 backend: null
+
+# Device for computing ('cpu' or 'cuda' or 'auto')
+device: auto
