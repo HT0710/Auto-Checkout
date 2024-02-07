@@ -1,13 +1,10 @@
 
 *.pyc
-video
-data    
+data/*
 !data/.gitkeep
-*.jpg
-*.png
+weights/*
+!weights/.gitkeep
 runs
-*.npz
 records
 tests
-weights
-!weights/.gitkeep
+
