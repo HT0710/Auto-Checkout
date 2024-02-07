@@ -1,3 +1,4 @@
+from collections import deque
 from typing import Dict, List
 
 import numpy as np
@@ -14,6 +15,7 @@ class TopEngine(CameraEngine):
         self.aruco_detector = ArucoDetector(**load_config("configs/aruco.yaml"))
         self.object_detector = ObjectDetector(**load_config("configs/yolov8.yaml"))
         self.camera_params = np.load("weights/calibration_params.npz")
+        self.detect_history = deque([], maxlen=10)
 
     def undistort(self, image: np.ndarray):
         mtx = self.camera_params["mtx"]
@@ -31,7 +33,7 @@ class TopEngine(CameraEngine):
 
         x, y, w, h = roi
 
-        return image
+        return image[y : y + h, x : x + w]
 
     def callback(self, image: np.ndarray) -> np.ndarray:
         process_image = image.copy()
@@ -44,9 +46,11 @@ class TopEngine(CameraEngine):
 
         boxes = self.object_detector.detect(process_image)
 
+        self.detect_history.append(len(boxes))
+
         cv2.putText(
             img=process_image,
-            text=f"Count: {len(boxes)}",
+            text=f"Count: {int(np.mean(self.detect_history))}",
             org=(20, 50),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
