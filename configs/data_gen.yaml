@@ -5,10 +5,10 @@
 # Dataset
 
 # Video folder path
-data_path: video
+data_path: data/data_gen/videos
 
 # Save folder path
-save_path: dataset
+save_path: data/data_gen/dataset
 
 # Save name (Default: using Date)
 save_name: null

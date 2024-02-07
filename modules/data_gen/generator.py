@@ -57,15 +57,22 @@ class DatasetGenerator:
         self.image_extensions = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"]
 
     def _check_save(self, path: str, name: str) -> PosixPath:
+        """
+        Check and format the save path.
+
+        Args:
+            path (str): The directory path where the file will be saved.
+            name (str): The name of the file.
+
+        Returns:
+            PosixPath: The formatted save path.
+        """
+
         # Check name
         if not name:
             name = datetime.now().strftime("%d-%b-%y")
-        # Create path
-        save_path = Path(path) / name
-        # Create directory
-        save_path.mkdir(parents=True, exist_ok=True)
 
-        return save_path
+        return Path(path) / name
 
     def _benchmark(self, data: List[Any]) -> int:
         """
@@ -177,6 +184,10 @@ class DatasetGenerator:
             3. Label generation
             4. Create data.yaml
         """
+
+        # Check save path
+        self.save_path.mkdir(parents=True, exist_ok=True)
+
         # ----------------
         # 1. Process video
 
