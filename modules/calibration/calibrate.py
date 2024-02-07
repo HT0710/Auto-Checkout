@@ -12,7 +12,13 @@ from ..utils import tuple_handler
 
 class Calibrate:
     def __init__(
-        self, grid_size: Tuple[int], frame_size: Tuple[int], diameter: int, refine: bool
+        self,
+        grid_size: Tuple[int],
+        frame_size: Tuple[int],
+        diameter: int,
+        refine: bool,
+        images_path: str,
+        save_path: str,
     ) -> None:
         """
         Initializes a calibration object with specified parameters.
@@ -22,13 +28,15 @@ class Calibrate:
             frame_size (Tuple[int]): The size of the frame or image in (height, width).
             diameter (int): The diameter of the circles in the calibration pattern.
             refine (bool): A flag indicating whether to refine corner positions.
+            images_path (str): Path to the directory containing calibration images.
+            save_path (str): Path to save the calibration parameters.
         """
         self.grid_size = tuple_handler(grid_size, max_dim=2)
         self.frame_size = tuple_handler(frame_size, max_dim=2)
         self.diameter = int(diameter)
         self.refine = bool(refine)
-        self.images_path = Path("modules/calibration/images")
-        self.save_path = Path("modules/calibration/calibration_params.npz")
+        self.images_path = Path(images_path)
+        self.save_path = Path(save_path) / "calibration_params.npz"
 
     def _detect_board(self, image: np.ndarray) -> Union[np.ndarray, None]:
         """

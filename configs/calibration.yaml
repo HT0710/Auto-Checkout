@@ -2,7 +2,7 @@
 
 
 # Board grid size
-grid_size: [5, 17]
+grid_size: [4, 13]
 
 # Frame size
 frame_size: [640, 480]
@@ -12,3 +12,9 @@ diameter: 20
 
 # Enable results refinement
 refine: false
+
+# Path to the directory containing calibration images
+images_path: data/calib_imgs
+
+# Path to save the calibration parameters
+save_path: weights
