@@ -10,7 +10,7 @@ from rich import print
 import numpy as np
 import cv2
 
-from .utils import tuple_handler
+from ..utils import tuple_handler
 
 
 class Camera:
