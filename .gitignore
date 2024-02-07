@@ -1,7 +1,8 @@
 
 *.pyc
 video
-dataset
+data    
+!data/.gitkeep
 *.jpg
 *.png
 runs
@@ -9,3 +10,4 @@ runs
 records
 tests
 weights
+!weights/.gitkeep
