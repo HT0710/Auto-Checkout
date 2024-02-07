@@ -13,9 +13,30 @@ class TopEngine(CameraEngine):
         super().__init__(camera_ids, camera_configs)
         self.aruco_detector = ArucoDetector(**load_config("configs/aruco.yaml"))
         self.object_detector = ObjectDetector(**load_config("configs/yolov8.yaml"))
+        self.camera_params = np.load("weights/calibration_params.npz")
+
+    def undistort(self, image: np.ndarray):
+        mtx = self.camera_params["mtx"]
+        dist = self.camera_params["dist"]
+
+        h, w = image.shape[:2]
+
+        new_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1)
+
+        map_x, map_y = cv2.initUndistortRectifyMap(
+            mtx, dist, None, new_mtx, (w, h), cv2.CV_32FC1
+        )
+
+        image = cv2.remap(image, map_x, map_y, cv2.INTER_CUBIC)
+
+        x, y, w, h = roi
+
+        return image
 
     def callback(self, image: np.ndarray) -> np.ndarray:
         process_image = image.copy()
+
+        process_image = self.undistort(process_image)
 
         self.aruco_detector.draw(
             process_image, *self.aruco_detector.detect(process_image)
