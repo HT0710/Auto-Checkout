@@ -1,3 +1,5 @@
+import subprocess
+
 from rich import print, traceback
 from rich.prompt import Prompt
 
@@ -12,6 +14,10 @@ def print_steps(contents: list) -> None:
         print(step) if isinstance(step, str) else step()
 
 
+def run_program() -> None:
+    subprocess.run(["python3", "run.py"])
+
+
 def main():
     # Calibration
     CALIBRATOR = Calibrate(**load_config("configs/calibration.yaml"))
@@ -23,11 +29,12 @@ def main():
     MENUS = {
         "main": [
             "-" * 21,
-            "[bold]Auto-Checkout Program[/]",
+            "[bold]Auto-Checkout Tools[/]",
             "-" * 21,
             "1. Calibration",
             "2. Generate dataset",
-            "3. Quit\n",
+            "3. Run program",
+            "4. Quit\n",
         ],
         "calib": [
             "-" * 15,
@@ -44,13 +51,19 @@ def main():
             DATAGEN.run,
             "\n[bold][green]-- Done --[/][/]\n",
         ],
+        "run": [
+            "-" * 15,
+            "[bold]> Run Program <[/]\n",
+            run_program,
+            "\n[bold][green]-- Done --[/][/]\n",
+        ],
     }
 
     # Choices loop
     while True:
         print_steps(MENUS["main"])
 
-        choice = Prompt.ask("Enter", choices=["1", "2", "3"])
+        choice = Prompt.ask("Enter", choices=["1", "2", "3", "4"])
         print()
 
         if choice == "1":
@@ -60,6 +73,9 @@ def main():
             print_steps(MENUS["data_gen"])
 
         elif choice == "3":
+            print_steps(MENUS["run"])
+
+        elif choice == "4":
             print("[red]Exit program[/]")
             break
 
