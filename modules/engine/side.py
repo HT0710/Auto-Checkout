@@ -4,18 +4,15 @@ from typing import Dict, List
 import numpy as np
 import cv2
 
-from ..detection import ArucoDetector, ObjectDetector
+from ..detection import ObjectDetector
 from .engine import CameraEngine
-from ..utils import load_config
-from .server import Server
 
 
-class TopEngine(CameraEngine):
+class SideEngine(CameraEngine):
     def __init__(self, camera_ids: List[int], engine_configs: Dict) -> None:
         super().__init__(
             camera_ids, engine_configs["camera"], engine_configs["calibration"]
         )
-        self.aruco_detector = ArucoDetector(**load_config("configs/aruco.yaml"))
         self.object_detector = ObjectDetector(**engine_configs["detection"])
         self.detect_history = deque([], maxlen=10)
 
@@ -24,21 +21,13 @@ class TopEngine(CameraEngine):
 
         process_image = self.undistort(process_image)
 
-        self.aruco_detector.draw(
-            process_image, *self.aruco_detector.detect(process_image)
-        )
-
         boxes = self.object_detector.detect(process_image)
 
         self.detect_history.append(len(boxes))
 
-        count = str(int(np.mean(self.detect_history)))
-
-        Server.set("count", count)
-
         cv2.putText(
             img=process_image,
-            text=f"Count: {count}",
+            text=f"Count: {int(np.mean(self.detect_history))}",
             org=(20, 50),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,

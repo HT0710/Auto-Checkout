@@ -1,0 +1,65 @@
+# Configuration for top camera
+
+
+# Camera configuration
+camera:
+  # Frame delay (millisecond)
+  delay: 1
+
+  # Process frequency
+  subsampling: 1
+
+  # Video resolution
+  resolution: null
+
+  # Record video
+  record:
+    # Save destination
+    path: records
+
+    # Save resolution
+    resolution: null
+
+  # Video debug
+  debug:
+    # Show fps
+    fps: false
+
+
+# Camera calibration
+calibration:
+  # Params path
+  # path: weights/calibration_params.npz
+
+
+# Configuration for detection
+detection:
+  # Model weight path
+  weight: weights/yolov8m.pt
+
+  # Confidence threshold for detection
+  conf: 0.25
+
+  # Intersection over Union
+  iou: 0.4
+
+  # Input size for the model
+  size: 640
+
+  # Use half precision (float16) for better inference
+  half: true
+
+  # Fuse model layer
+  fuse: true
+
+  # Using onnx model
+  onnx: false
+
+  # Use TorchDynamo, the latest method to speed up PyTorch code
+  optimize: true
+
+  # Backend to be used for model optimization
+  backend: null
+
+  # Device for computing ('cpu' or 'cuda' or 'auto')
+  device: auto
