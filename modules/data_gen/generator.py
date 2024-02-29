@@ -1,3 +1,4 @@
+from functools import cached_property
 from pathlib import Path, PosixPath
 from typing import Any, List, Tuple
 from datetime import datetime
@@ -10,7 +11,7 @@ from tqdm import tqdm
 import cv2
 
 from ..utils import workers_handler, device_handler, tuple_handler
-from .processing import VideoProcessing
+from .processing import ImageProcessing
 from .labeling import AutoLabeling
 
 
@@ -48,13 +49,25 @@ class DatasetGenerator:
         self.image_size = image_size
         self.split_size = tuple_handler(split_size, max_dim=3)
         self.workers = workers_handler(num_workers)
-        self.labeling_config = {
-            "model": model,
-            "device": device_handler(device),
-            "tensorrt": tensorrt,
-        }
+        self.labeler = AutoLabeling(
+            model=model, device=device_handler(device), tensorrt=tensorrt
+        )
         self.video_extensions = [".mp4", ".avi", ".mkv", ".mov", ".flv", ".mpg"]
         self.image_extensions = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"]
+
+    @cached_property
+    def classes(self):
+        """
+        Returns a sorted list of class names based on the folders present in the data path.
+
+        Returns
+        -------
+        list
+            A sorted list of class names.
+        """
+        return sorted(
+            [folder.name for folder in self.data_path.iterdir() if folder.is_dir()]
+        )
 
     def _check_save(self, path: str, name: str) -> PosixPath:
         """
@@ -88,28 +101,50 @@ class DatasetGenerator:
             1, round(len(data) / (self.workers * psutil.cpu_freq().max / 1000) / 4)
         )
 
-    def _process_video(self, path: PosixPath) -> None:
+    def _list_image(self, path: Path):
         """
-        Process the video and save frames.
+        Recursively lists image files with extensions specified in self.image_extensions.
 
-        Args:
-            path (PosixPath): Path to video to be processed.
+        Parameters
+        ----------
+        path : Path
+            The path to search for image files.
+
+        Returns
+        -------
+        list
+            A list of Path objects representing image files.
+        """
+        return [
+            image for ext in self.image_extensions for image in path.rglob("*" + ext)
+        ]
+
+    def _process_images(self, path: PosixPath) -> None:
+        """
+        Process the image by resizing it and saving it to the specified save path.
+
+        Parameters
+        ----------
+        path : PosixPath
+            The path to the image file to be processed.
         """
 
         # Load
-        video = VideoProcessing.load(str(path))
-        # Subsample
-        video = VideoProcessing.subsample(video, value=self.subsample)
-        # Resize
-        video = VideoProcessing.resize(video, size=self.image_size)
+        image = cv2.imread(str(path))
 
-        # Save frames
-        for i, frame in enumerate(video):
-            save_name = f"{path.parent.name}_{path.stem}_{i}.jpg"
+        # Reize
+        image = ImageProcessing.resize(image, self.image_size)
 
-            cv2.imwrite(filename=f"{self.save_path}/{save_name}", img=frame)
+        # Create save folder
+        self.save_path.mkdir(parents=True, exist_ok=True)
 
-    def _split_data(self, data: List[PosixPath]) -> None:
+        # Setup save name
+        save_name = f"{path.parent.name}@{path.name}"
+
+        # Save image
+        cv2.imwrite(filename=str(self.save_path / save_name), img=image)
+
+    def _split_data(self) -> None:
         """
         Split the data into training, validation, and test sets and move them to corresponding folders.
 
@@ -121,10 +156,13 @@ class DatasetGenerator:
         save_folders = [self.save_path / folder for folder in ["train", "val", "test"]]
         [folder.mkdir(exist_ok=True) for folder in save_folders]
 
+        # Get image list
+        data = self._list_image(path=self.save_path)
+
         # Shuffle data
         random.shuffle(data)
 
-        # Split into train, val, test chunk
+        # Split data
         split_sizes = [round(len(data) * size) for size in self.split_size]
         splited_paths = [
             data[: split_sizes[0]],
@@ -163,17 +201,21 @@ class DatasetGenerator:
             image = cv2.imread(str(path))
 
             # Get label
-            label = [
-                str(i / self.image_size) for i in self.labeler.get_bounding_box(image)
-            ]
+            x, y, w, h = self.labeler.get_bounding_box(image)
+
+            # Calculate center
+            x_center, y_center = (x + w / 2), (y + h / 2)
+
+            # Create label info
+            info = [str(i / self.image_size) for i in [x_center, y_center, w, h]]
 
             # Move image
             shutil.move(src=str(path), dst=str(images_folder / path.name))
 
             # Create label file
             with open(str(labels_folder / path.stem) + ".txt", "w+") as f:
-                class_name = path.stem.split("_")[0]
-                f.write(f"{self.classes.index(class_name)} {' '.join(label)}")
+                class_name = path.stem.split("@")[0]
+                f.write(f"{self.classes.index(class_name)} {' '.join(info)}")
 
     def run(self):
         """
@@ -185,62 +227,26 @@ class DatasetGenerator:
             4. Create data.yaml
         """
 
-        # Check save path
-        self.save_path.mkdir(parents=True, exist_ok=True)
-
         # ----------------
-        # 1. Process video
+        # 1. Process image
+        images_path = self._list_image(path=self.data_path)
 
-        # Get all videos path
-        video_paths = [
-            video
-            for ext in self.video_extensions
-            for video in self.data_path.rglob("*" + ext)
-        ]
-
-        # Process all videos
         process_map(
-            self._process_video,
-            video_paths,
+            self._process_images,
+            images_path,
             max_workers=self.workers,
-            chunksize=self._benchmark(video_paths),
-            desc="Process video",
+            chunksize=self._benchmark(images_path),
+            desc="Process image",
             colour="cyan",
         )
 
         # -------------
         # 2. Split data
-
-        # Get all images path
-        images_path = [
-            image
-            for ext in self.image_extensions
-            for image in self.save_path.rglob("*" + ext)
-        ]
-
-        # Split data
-        self._split_data(data=images_path)
+        self._split_data()
 
         # -----------------
-        # 3. Generate frame
-
-        # Get all images path (again)
-        images_path = [
-            image
-            for ext in self.image_extensions
-            for image in self.save_path.rglob("*" + ext)
-        ]
-
-        # Get all classes
-        self.classes = sorted(
-            [folder.name for folder in self.data_path.iterdir() if folder.is_dir()]
-        )
-
-        # Define labeler
-        self.labeler = AutoLabeling(**self.labeling_config)
-
-        # Generate label
-        self._generate_label(data=images_path)
+        # 3. Generate label
+        self._generate_label(data=self._list_image(path=self.save_path))
 
         # -------------------
         # 4. Create data.yaml
