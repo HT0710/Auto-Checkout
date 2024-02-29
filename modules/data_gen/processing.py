@@ -28,7 +28,7 @@ class ImageProcessing:
 
     @staticmethod
     def add_border(
-        image: np.ndarray, border_color: Tuple | int = (0, 0, 0)
+        image: np.ndarray, border_color: Union[Tuple, int] = (0, 0, 0)
     ) -> np.ndarray:
         """
         Adds a border around a given video frame to make it a square frame.
@@ -100,8 +100,7 @@ class VideoProcessing:
 
     @staticmethod
     def subsample(
-        video: Union[np.ndarray, List[np.ndarray], GeneratorType],
-        value: int,
+        video: Union[np.ndarray, List[np.ndarray], GeneratorType], value: int
     ) -> List[np.ndarray]:
         """
         Perform frame subsampling on a video.
