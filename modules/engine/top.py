@@ -1,4 +1,4 @@
-from collections import deque
+from collections import deque, defaultdict
 from typing import Dict, List
 
 import numpy as np
@@ -32,13 +32,9 @@ class TopEngine(CameraEngine):
 
         self.detect_history.append(len(boxes))
 
-        count = str(int(np.mean(self.detect_history)))
-
-        Server.set("count", count)
-
         cv2.putText(
             img=process_image,
-            text=f"Count: {count}",
+            text=f"Count: {int(np.mean(self.detect_history))}",
             org=(20, 50),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
@@ -46,9 +42,13 @@ class TopEngine(CameraEngine):
             thickness=2,
         )
 
+        products = defaultdict(int)
+
         for box in boxes:
             # xyxy location
-            x1, y1, x2, y2 = map(int, box[:4])
+            x1, y1, x2, y2, _, idx = map(int, box)
+
+            products[idx] += 1
 
             cv2.rectangle(
                 img=process_image,
@@ -57,6 +57,10 @@ class TopEngine(CameraEngine):
                 color=(255, 255, 0),
                 thickness=2,
             )
+
+        Server.set(
+            "products", str([{"code": k, "quantity": v} for k, v in products.items()])
+        )
 
         return process_image
 

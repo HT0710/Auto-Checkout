@@ -11,7 +11,6 @@ import numpy as np
 import cv2
 
 from ..utils import tuple_handler
-from .server import Server
 
 
 class Camera:
