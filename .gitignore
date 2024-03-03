@@ -7,4 +7,5 @@ weights/*
 runs
 records
 tests
-
+dataset/
+*.pt

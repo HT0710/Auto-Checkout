@@ -17,7 +17,7 @@ save_name: null
 subsample: 3
 
 # Train, val, test size
-split_size: [0.7, 0.2, 0.1]
+split_size: [0.8, 0.2, 0]
 
 # Image size
 image_size: 640

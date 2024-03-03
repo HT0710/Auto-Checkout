@@ -12,6 +12,9 @@ camera:
   # Video resolution
   resolution: null
 
+  # Camera calibration
+  calibration: # weights/calibration_params.npz
+
   # Record video
   record:
     # Save destination
@@ -24,13 +27,6 @@ camera:
   debug:
     # Show fps
     fps: false
-
-
-# Camera calibration
-calibration:
-  # Params path
-  # path: weights/calibration_params.npz
-
 
 # Configuration for detection
 detection:
