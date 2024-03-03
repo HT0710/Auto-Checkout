@@ -142,6 +142,9 @@ class ObjectDetector:
         # Create an instance of the YOLO model
         model = YOLO(model=weight, task="detect")
 
+        # Get all classes
+        self.classes = model.names
+
         # Fuse model layers if specified
         if fuse:
             model.fuse()
