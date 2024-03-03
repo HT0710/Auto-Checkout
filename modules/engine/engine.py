@@ -1,72 +1,88 @@
-from typing import Dict, List
+from typing import List
 
-from rich import print
-import numpy as np
 import cv2
 
-from .camera import Camera
+from ..utils import load_config
+from .side import SideEngine
+from .top import TopEngine
 
 
-class CameraEngine:
-    def __init__(
-        self, camera_ids: List[int], camera_configs: Dict, calibration: Dict
-    ) -> None:
+class CameraControler:
+    def __init__(self, top_ids: List[int] = None, side_ids: List[int] = None) -> None:
         """
         Initializes a CameraEngine object.
 
         Parameters
         ----------
-        camera_ids : List[int]
-            List of camera IDs to be used.
-        camera_configs : Dict
-            Configuration dictionary for camera setup.
-        calibration : Dict
-            Configuration dictionary for camera calibration.
+        top_ids : List[int], optional
+            A list of integers representing the IDs of top cameras, by default None.
+        side_ids : List[int], optional
+            A list of integers representing the IDs of side cameras, by default None.
         """
-        self.cameras = [
-            Camera(device_id=cam_id, **camera_configs) for cam_id in camera_ids
+        self.engines = []
+
+        # Define camera configurations
+        camera_configs = [
+            (top_ids, TopEngine, "configs/engine/top.yaml"),
+            (side_ids, SideEngine, "configs/engine/side.yaml"),
         ]
-        if calibration:
-            self.camera_params = np.load(calibration["path"])
 
-    def undistort(self, image: np.ndarray) -> np.ndarray:
-        if not hasattr(self, "camera_params"):
-            return image
+        # Iterate over camera configurations and instantiate engines
+        for camera_ids, engine_class, config_file in camera_configs:
+            # If camera IDs are not provided, skip instantiation
+            if not camera_ids:
+                continue
 
-        mtx = self.camera_params["mtx"]
-        dist = self.camera_params["dist"]
-
-        h, w = image.shape[:2]
-
-        new_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1)
-
-        map_x, map_y = cv2.initUndistortRectifyMap(
-            mtx, dist, None, new_mtx, (w, h), cv2.CV_32FC1
-        )
-
-        image = cv2.remap(image, map_x, map_y, cv2.INTER_CUBIC)
-
-        x, y, w, h = roi
-
-        return image[y : y + h, x : x + w]
-
-    def callback(self, image: np.ndarray) -> np.ndarray:
-        """
-        Callback method to be overridden by subclasses.
-
-        Parameters
-        ----------
-        image : np.ndarray
-            Input image.
-
-        Returns
-        -------
-        np.ndarray
-            Processed image.
-        """
-        print("[yellow][WARNING] Callback method needs to be overridden.[/]", end="\r")
-        return image
+            # Instantiate engine
+            self.engines.append(
+                engine_class(
+                    camera_ids=camera_ids,
+                    engine_configs=load_config(config_file),
+                )
+            )
 
     def run(self) -> None:
-        """Runs the camera capture loop for all cameras."""
-        [camera.run(callback=self.callback) for camera in self.cameras]
+        """
+        Runs the camera capture loop for all cameras.
+
+        Notes
+        -----
+        This method iterates over all engines and their associated cameras, capturing frames
+        from each camera and displaying them using OpenCV. It continues until a camera's delay
+        limit is reached.
+
+        After the loop exits, it releases all camera resources.
+        """
+
+        controler = {}
+
+        # Initialize controller dictionary with cameras for each engine
+        for engine in self.engines:
+            controler[engine] = [
+                {"self": camera, "current": iter(camera)} for camera in engine.cameras
+            ]
+
+        stop = False
+
+        # Main loop for capturing frames from cameras
+        while not stop:
+            for engine, cameras in controler.items():
+                for camera in cameras:
+                    frame = next(camera["current"])
+
+                    # Perform callback on the engine
+                    frame = engine.callback(frame)
+
+                    # Display frame
+                    cv2.imshow(str(camera["self"].device_id), frame)
+
+                    # Check for delay on each camera
+                    if not camera["self"].delay(camera["self"].wait):
+                        stop = True
+
+        # Release camera resources
+        [
+            camera["self"].release()
+            for cameras in controler.values()
+            for camera in cameras
+        ]
