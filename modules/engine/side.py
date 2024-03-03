@@ -1,43 +1,68 @@
-from collections import deque
+from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
 import cv2
 
 from ..detection import ObjectDetector
-from .engine import CameraEngine
+from .camera import Camera
+from .server import Server
 
 
-class SideEngine(CameraEngine):
+class SideEngine:
     def __init__(self, camera_ids: List[int], engine_configs: Dict) -> None:
-        super().__init__(
-            camera_ids, engine_configs["camera"], engine_configs["calibration"]
-        )
+        """
+        Initializes a SideEngine object.
+
+        Parameters
+        ----------
+        camera_ids : List[int]
+            A list of integers representing the IDs of cameras associated with this engine.
+        engine_configs : Dict
+            A dictionary containing engine configurations.
+
+        Notes
+        -----
+        This method initializes a SideEngine object with cameras and an object detector.
+        """
+        self.cameras = [
+            Camera(device_id=value, **engine_configs["camera"]) for value in camera_ids
+        ]
         self.object_detector = ObjectDetector(**engine_configs["detection"])
-        self.detect_history = deque([], maxlen=10)
 
     def callback(self, image: np.ndarray) -> np.ndarray:
+        """
+        Performs callback operations on the image.
+
+        Parameters
+        ----------
+        image : np.ndarray
+            Input image to be processed.
+
+        Returns
+        -------
+        np.ndarray
+            Processed image.
+
+        Notes
+        -----
+        This method performs object detection and draws bounding boxes around detected objects.
+        """
+
+        # Create image clone
         process_image = image.copy()
 
-        process_image = self.undistort(process_image)
-
+        # Detect obejct
         boxes = self.object_detector.detect(process_image)
 
-        self.detect_history.append(len(boxes))
-
-        cv2.putText(
-            img=process_image,
-            text=f"Count: {int(np.mean(self.detect_history))}",
-            org=(20, 50),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=1,
-            color=(255, 255, 0),
-            thickness=2,
-        )
+        # Products tracking
+        products = defaultdict(int)
 
         for box in boxes:
             # xyxy location
-            x1, y1, x2, y2 = map(int, box[:4])
+            x1, y1, x2, y2, conf, idx = map(int, box)
+
+            products[idx] += 1
 
             cv2.rectangle(
                 img=process_image,
@@ -47,7 +72,19 @@ class SideEngine(CameraEngine):
                 thickness=2,
             )
 
-        return process_image
+            cv2.putText(
+                img=process_image,
+                text=self.object_detector.classes[idx],
+                org=(x1 + 10, y1 + 30),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=1,
+                color=(255, 255, 0),
+                thickness=2,
+            )
 
-    def run(self) -> None:
-        return super().run()
+        # Update product information in the server
+        # Server.set(
+        #     "products", str([{"code": k, "quantity": v} for k, v in products.items()])
+        # )
+
+        return process_image
