@@ -1,17 +1,12 @@
-from modules import TopEngine, SideEngine
-from modules.utils import load_config
+from modules import CameraControler
 
 
 def main():
-    top_camera = TopEngine(
-        camera_ids=[0], engine_configs=load_config("configs/engine/top.yaml")
-    )
-    # side_camera = SideEngine(
-    #     camera_ids=[1, 2], engine_configs=load_config("configs/engine/side.yaml")
-    # )
+    # Define camera controler
+    controler = CameraControler(top_ids=[0], side_ids=[2])
 
-    top_camera.run()
-    # side_camera.run()
+    # Run the controler
+    controler.run()
 
 
 if __name__ == "__main__":
