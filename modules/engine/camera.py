@@ -20,6 +20,7 @@ class Camera:
         delay: int = 1,
         subsampling: int = 1,
         resolution: Tuple[int] = None,
+        calibration: str = None,
         record: Dict = None,
         debug: Dict = None,
     ) -> None:
@@ -36,6 +37,8 @@ class Camera:
             Rate at which frames are subsampled, by default 1.
         resolution : Tuple[int], optional
             Resolution of the captured frames (width, height), by default None.
+        calibration : str, optional
+            Path to camera parameters for calibration, by default None.
         record : Dict, optional
             Configuration for recording functionality, by default None.
         debug : Dict, optional
@@ -46,6 +49,7 @@ class Camera:
         self.capture = self._check_capture(device_id)
         self.subsampling = max(1, int(subsampling))
         self.resolution = tuple_handler(resolution, max_dim=2) if resolution else None
+        self._setup_calibration(path=calibration)
         self._setup_recorder(**record)
         self._setup_debuger(**debug)
 
@@ -118,6 +122,10 @@ class Camera:
         # Get current frame
         self.current_frame = next(self.queue)
 
+        # Camera calibration
+        if hasattr(self, "camera_params"):
+            self.current_frame = self._undistort(self.current_frame)
+
         # Change video resolution
         if self.resolution:
             self.current_frame = cv2.resize(self.current_frame, self.resolution)
@@ -165,6 +173,23 @@ class Camera:
 
         return cap
 
+    def _setup_calibration(self, path: str) -> None:
+        """
+        Sets up calibration parameters from a given file path.
+
+        Parameters
+        ----------
+        path : str
+            The file path to the calibration data in .npz format.
+        """
+
+        # Check path
+        if not path or (not Path(path).is_file() and not path.endswith(".npz")):
+            return
+
+        # Load camera parameters
+        self.camera_params = np.load(path)
+
     def _setup_recorder(self, path: str, resolution: Tuple[int]) -> None:
         """
         Sets up the video recorder for saving the captured frames.
@@ -209,6 +234,43 @@ class Camera:
         # Check fps
         if fps:
             self.fps_history = deque(maxlen=30)
+
+    def _undistort(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Undistorts a given image frame using camera calibration parameters if available.
+
+        Parameters
+        ----------
+        frame : np.ndarray
+            The input image frame to undistort.
+
+        Returns
+        -------
+        np.ndarray
+            The undistorted image frame.
+        """
+
+        # Get camera params
+        mtx = self.camera_params["mtx"]
+        dist = self.camera_params["dist"]
+
+        # Get shape
+        h, w = frame.shape[:2]
+
+        # Get optimal matrix
+        new_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1)
+
+        # Undistort image
+        map_x, map_y = cv2.initUndistortRectifyMap(
+            mtx, dist, None, new_mtx, (w, h), cv2.CV_32FC1
+        )
+
+        # Remap image
+        frame = cv2.remap(frame, map_x, map_y, cv2.INTER_CUBIC)
+
+        x, y, w, h = roi
+
+        return frame[y : y + h, x : x + w]
 
     @cached_property
     def name(self) -> str:
