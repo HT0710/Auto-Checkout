@@ -85,38 +85,39 @@ class CameraControler:
                         stop = True
 
                     # Perform callback on the engine
-                    if signal == "STOP":
-                        continue
+                    if signal == "SCAN":
+                        output = engine.callback(frame)
 
-                    output = engine.callback(frame)
+                        frame = output["frame"]
 
-                    frame = output["frame"]
+                        if key == "top":
+                            results["top"] = output["results"]
 
-                    if key == "top":
-                        results["top"] = output["results"]
+                        if key == "side":
+                            results["side"].append(output["results"])
 
-                    if key == "side":
-                        results["side"].append(output["results"])
+            if signal == "STOP":
+                continue
 
-                    total = results["top"]
+            total = results["top"]
 
-                    left, right = results["side"]
-                    conflict = right.copy()
-                    products = defaultdict(int)
+            left, right = results["side"]
+            conflict = right.copy()
+            products = defaultdict(int)
 
-                    for key, value in left.items():
-                        if key in right:
-                            if len(value) == len(right[key]):
-                                products[key] += 1
-                                conflict.pop(key)
-
-                        else:
-                            conflict[key] = value
-
-                    for key in conflict.keys():
+            for key, value in left.items():
+                if key in right:
+                    if len(value) == len(right[key]):
                         products[key] += 1
+                        conflict.pop(key)
 
-                    Server.set("products", str(dict(products)))
+                else:
+                    conflict[key] = value
+
+            for key in conflict.keys():
+                products[key] += 1
+
+            Server.set("products", str(dict(products)))
 
         # Release camera resources
         [
