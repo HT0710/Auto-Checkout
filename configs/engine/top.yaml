@@ -32,13 +32,13 @@ camera:
 # Configuration for detection
 detection:
   # Model weight path
-  weight: weights/yolov8m.pt
+  weight: runs/train/weights/best.pt
 
   # Confidence threshold for detection
   conf: 0.25
 
   # Intersection over Union
-  iou: 0.4
+  iou: 0.7
 
   # Input size for the model
   size: 640
