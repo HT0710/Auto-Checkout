@@ -77,18 +77,6 @@ class CameraControler:
                 for camera in value["cameras"]:
                     frame = next(camera["current"])
 
-                    # Perform callback on the engine
-                    if signal == "SCAN":
-                        output = engine.callback(frame)
-
-                        frame = output["frame"]
-
-                        if key == "top":
-                            results["top"] = output["results"]
-
-                        if key == "side":
-                            results["side"].append(output["results"])
-
                     # Display frame
                     cv2.imshow(str(camera["self"].device_id), frame)
 
@@ -96,25 +84,39 @@ class CameraControler:
                     if not camera["self"].delay(camera["self"].wait):
                         stop = True
 
-            total = results["top"]
+                    # Perform callback on the engine
+                    if signal == "STOP":
+                        continue
 
-            left, right = results["side"]
-            conflict = right.copy()
-            products = defaultdict(int)
+                    output = engine.callback(frame)
 
-            for key, value in left.items():
-                if key in right:
-                    if len(value) == len(right[key]):
+                    frame = output["frame"]
+
+                    if key == "top":
+                        results["top"] = output["results"]
+
+                    if key == "side":
+                        results["side"].append(output["results"])
+
+                    total = results["top"]
+
+                    left, right = results["side"]
+                    conflict = right.copy()
+                    products = defaultdict(int)
+
+                    for key, value in left.items():
+                        if key in right:
+                            if len(value) == len(right[key]):
+                                products[key] += 1
+                                conflict.pop(key)
+
+                        else:
+                            conflict[key] = value
+
+                    for key in conflict.keys():
                         products[key] += 1
-                        conflict.pop(key)
 
-                else:
-                    conflict[key] = value
-
-            for key in conflict.keys():
-                products[key] += 1
-
-            Server.set("products", str(dict(products)))
+                    Server.set("products", str(dict(products)))
 
         # Release camera resources
         [
