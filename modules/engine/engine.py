@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List
 
 import cv2
@@ -97,22 +98,23 @@ class CameraControler:
 
             total = results["top"]
 
-            print(results["side"])
-            continue
-
             left, right = results["side"]
-            products = left.copy()
+            conflict = right.copy()
+            products = defaultdict(int)
 
-            for product in left:
-                idx_l, conf_l = next(iter(product.items()))
+            for key, value in left.items():
+                if key in right:
+                    if len(value) == len(right[key]):
+                        products[key] += 1
+                        conflict.pop(key)
 
-                for product in right:
-                    idx_r, conf_r = next(iter(product.items()))
-                    if idx_r == idx_l:
-                        if conf_r >= conf_l:
-                            products.remove()
+                else:
+                    conflict[key] = value
 
-            exit()
+            for key in conflict.keys():
+                products[key] += 1
+
+            Server.set("products", str(dict(products)))
 
         # Release camera resources
         [
