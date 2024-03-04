@@ -20,27 +20,34 @@ class CameraControler:
         side_ids : List[int], optional
             A list of integers representing the IDs of side cameras, by default None.
         """
-        self.engines = []
+        self.engines = {}
 
         # Define camera configurations
         camera_configs = [
-            (top_ids, TopEngine, "configs/engine/top.yaml"),
-            (side_ids, SideEngine, "configs/engine/side.yaml"),
+            (top_ids, "top", TopEngine, "configs/engine/top.yaml"),
+            (side_ids, "side", SideEngine, "configs/engine/side.yaml"),
         ]
 
         # Iterate over camera configurations and instantiate engines
-        for camera_ids, engine_class, config_file in camera_configs:
+        for camera_ids, name, engine_class, config_file in camera_configs:
             # If camera IDs are not provided, skip instantiation
             if not camera_ids:
                 continue
 
-            # Instantiate engine
-            self.engines.append(
-                engine_class(
-                    camera_ids=camera_ids,
-                    engine_configs=load_config(config_file),
-                )
+            # Create engine
+            engine = engine_class(
+                camera_ids=camera_ids,
+                engine_configs=load_config(config_file),
             )
+
+            # Instantiate engine
+            self.engines[name] = {
+                "self": engine,
+                "cameras": [
+                    {"self": camera, "current": iter(camera)}
+                    for camera in engine.cameras
+                ],
+            }
 
     def run(self) -> None:
         """
@@ -55,29 +62,31 @@ class CameraControler:
         After the loop exits, it releases all camera resources.
         """
 
-        controler = {}
-
-        # Initialize controller dictionary with cameras for each engine
-        for engine in self.engines:
-            controler[engine] = [
-                {"self": camera, "current": iter(camera)} for camera in engine.cameras
-            ]
-
         stop = False
 
         # Main loop for capturing frames from cameras
         while not stop:
             signal = Server.get("status")
 
-            if signal == "STOP":
-                continue
+            results = {"top": None, "side": []}
 
-            for engine, cameras in controler.items():
-                for camera in cameras:
+            for key, value in self.engines.items():
+                engine = value["self"]
+
+                for camera in value["cameras"]:
                     frame = next(camera["current"])
 
                     # Perform callback on the engine
-                    frame = engine.callback(frame)
+                    if signal == "SCAN":
+                        output = engine.callback(frame)
+
+                        frame = output["frame"]
+
+                        if key == "top":
+                            results["top"] = output["results"]
+
+                        if key == "side":
+                            results["side"].append(output["results"])
 
                     # Display frame
                     cv2.imshow(str(camera["self"].device_id), frame)
@@ -86,9 +95,11 @@ class CameraControler:
                     if not camera["self"].delay(camera["self"].wait):
                         stop = True
 
+            print(results)
+
         # Release camera resources
         [
             camera["self"].release()
-            for cameras in controler.values()
-            for camera in cameras
+            for engine in self.engines.values()
+            for camera in engine["cameras"]
         ]

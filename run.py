@@ -7,7 +7,7 @@ traceback.install()
 
 def main():
     # Define camera controler
-    controler = CameraControler(top_ids=[0], side_ids=[2])
+    controler = CameraControler(top_ids=[], side_ids=[0])
 
     # Run the controler
     controler.run()

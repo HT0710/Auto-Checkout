@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
@@ -6,7 +5,6 @@ import cv2
 
 from ..detection import ObjectDetector
 from .camera import Camera
-from .server import Server
 
 
 class SideEngine:
@@ -56,13 +54,15 @@ class SideEngine:
         boxes = self.object_detector.detect(process_image)
 
         # Products tracking
-        products = defaultdict(int)
+        products = []
 
         for box in boxes:
             # xyxy location
-            x1, y1, x2, y2, conf, idx = map(int, box)
+            x1, y1, x2, y2 = map(int, box[:4])
 
-            products[idx] += 1
+            conf, idx = round(box[4], 2), int(box[5])
+
+            products.append({idx: conf})
 
             cv2.rectangle(
                 img=process_image,
@@ -82,9 +82,4 @@ class SideEngine:
                 thickness=2,
             )
 
-        # Update product information in the server
-        # Server.set(
-        #     "products", str([{"code": k, "quantity": v} for k, v in products.items()])
-        # )
-
-        return process_image
+        return {"frame": process_image, "results": products}
