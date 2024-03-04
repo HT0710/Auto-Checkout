@@ -77,13 +77,6 @@ class CameraControler:
                 for camera in value["cameras"]:
                     frame = next(camera["current"])
 
-                    # Display frame
-                    cv2.imshow(str(camera["self"].device_id), frame)
-
-                    # Check for delay on each camera
-                    if not camera["self"].delay(camera["self"].wait):
-                        stop = True
-
                     # Perform callback on the engine
                     if signal == "SCAN":
                         output = engine.callback(frame)
@@ -95,6 +88,13 @@ class CameraControler:
 
                         if key == "side":
                             results["side"].append(output["results"])
+
+                    # Display frame
+                    cv2.imshow(str(camera["self"].device_id), frame)
+
+                    # Check for delay on each camera
+                    if not camera["self"].delay(camera["self"].wait):
+                        stop = True
 
             if signal == "STOP":
                 continue
@@ -117,7 +117,10 @@ class CameraControler:
             for key in conflict.keys():
                 products[key] += 1
 
-            Server.set("products", str(dict(products)))
+            Server.set(
+                "products",
+                str([{"code": k, "quantity": v} for k, v in products.items()]),
+            )
 
         # Release camera resources
         [
