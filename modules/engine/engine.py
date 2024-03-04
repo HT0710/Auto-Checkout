@@ -95,7 +95,24 @@ class CameraControler:
                     if not camera["self"].delay(camera["self"].wait):
                         stop = True
 
-            print(results)
+            total = results["top"]
+
+            print(results["side"])
+            continue
+
+            left, right = results["side"]
+            products = left.copy()
+
+            for product in left:
+                idx_l, conf_l = next(iter(product.items()))
+
+                for product in right:
+                    idx_r, conf_r = next(iter(product.items()))
+                    if idx_r == idx_l:
+                        if conf_r >= conf_l:
+                            products.remove()
+
+            exit()
 
         # Release camera resources
         [

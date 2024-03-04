@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
@@ -54,7 +55,7 @@ class SideEngine:
         boxes = self.object_detector.detect(process_image)
 
         # Products tracking
-        products = []
+        products = defaultdict(list)
 
         for box in boxes:
             # xyxy location
@@ -62,7 +63,7 @@ class SideEngine:
 
             conf, idx = round(box[4], 2), int(box[5])
 
-            products.append({idx: conf})
+            products[idx].append(conf)
 
             cv2.rectangle(
                 img=process_image,
