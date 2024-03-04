@@ -169,7 +169,7 @@ class Camera:
 
         # Check capture
         if not cap.isOpened():
-            raise ValueError(f"[red]Cannot open camera ID: {value}[/]")
+            raise ValueError(f"Cannot open camera ID: {value}")
 
         return cap
 

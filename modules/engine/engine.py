@@ -5,6 +5,7 @@ import cv2
 from ..utils import load_config
 from .side import SideEngine
 from .top import TopEngine
+from .server import Server
 
 
 class CameraControler:
@@ -66,6 +67,11 @@ class CameraControler:
 
         # Main loop for capturing frames from cameras
         while not stop:
+            signal = Server.get("status")
+
+            if signal == "STOP":
+                continue
+
             for engine, cameras in controler.items():
                 for camera in cameras:
                     frame = next(camera["current"])

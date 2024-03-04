@@ -1,4 +1,8 @@
+from rich import traceback
+
 from modules import CameraControler
+
+traceback.install()
 
 
 def main():

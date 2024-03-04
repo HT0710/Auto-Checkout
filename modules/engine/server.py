@@ -7,3 +7,7 @@ class Server:
     @classmethod
     def set(cls, key: str, value: str):
         cls.API.set(key, value)
+
+    @classmethod
+    def get(cls, key: str):
+        return cls.API.get(key)
