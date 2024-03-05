@@ -120,28 +120,41 @@ class CameraControler:
             total = results["top"]
 
             left, right = results["side"]
-            conflict = right.copy()
+
+            conflict = defaultdict(list)
+            conflict.update(right.copy())
+
             products = defaultdict(int)
 
             for key, value in left.items():
-                if key in right:
-                    if len(value) == len(right[key]):
-                        products[key] += 1
+                if key not in right:
+                    conflict[key].extend(value)
+                    continue
+
+                left_size, right_size = len(value), len(right[key])
+
+                if left_size == right_size:
+                    products[key] += 1
+                    conflict.pop(key)
+
+                if left_size > right_size:
+                    for _ in range(right_size):
+                        value.pop()
                         conflict.pop(key)
+                        products[key] += 1
 
-                else:
-                    conflict[key] = value
+                    conflict[key].extend(value)
 
-            for key in conflict.keys():
-                products[key] += 1
+            for key, value in conflict.items():
+                products[key] += len(value)
 
-            if len(products) > total:
-                for key, value in products.items():
-                    for conf in value:
-                        if conf < 0.7:
-                            products.pop(key)
+            # if len(products) > total:
+            #     for key, value in products.items():
+            #         for conf in value:
+            #             if conf < 0.7:
+            #                 products.pop(key)
 
-            elif len(products) < total:
+            if len(products) < total:
                 Server.set(
                     "message",
                     str({"code": "0", "detail": "Some products are undetectable."}),
