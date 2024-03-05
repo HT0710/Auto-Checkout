@@ -64,8 +64,6 @@ class CameraControler:
         After the loop exits, it releases all camera resources.
         """
 
-        Server.set("status", "STOP")
-
         stop = False
 
         # Main loop for capturing frames from cameras
@@ -129,21 +127,21 @@ class CameraControler:
             for key, value in left.items():
                 if key not in right:
                     conflict[key].extend(value)
-                    continue
 
-                left_size, right_size = len(value), len(right[key])
+                else:
+                    left_size, right_size = len(value), len(right[key])
 
-                if left_size == right_size:
-                    products[key] += 1
-                    conflict.pop(key)
-
-                if left_size > right_size:
-                    for _ in range(right_size):
-                        value.pop()
-                        conflict.pop(key)
+                    if left_size == right_size:
                         products[key] += 1
+                        conflict.pop(key)
 
-                    conflict[key].extend(value)
+                    if left_size > right_size:
+                        for _ in range(right_size):
+                            value.pop()
+                            conflict.pop(key)
+                            products[key] += 1
+
+                        conflict[key].extend(value)
 
             for key, value in conflict.items():
                 products[key] += len(value)
