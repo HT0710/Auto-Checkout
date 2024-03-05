@@ -1,0 +1,8 @@
+# Configuration for camera
+
+
+# Top camera ids
+top_ids: []
+
+# Side camera ids
+side_ids: [0]

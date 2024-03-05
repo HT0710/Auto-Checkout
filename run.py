@@ -1,5 +1,6 @@
 from rich import traceback
 
+from modules.utils import load_config
 from modules import CameraControler
 
 traceback.install()
@@ -7,10 +8,10 @@ traceback.install()
 
 def main():
     # Define camera controler
-    controler = CameraControler(top_ids=[], side_ids=[0])
+    controller = CameraControler(**load_config("configs/camera.yaml"))
 
     # Run the controler
-    controler.run()
+    controller.run()
 
 
 if __name__ == "__main__":
