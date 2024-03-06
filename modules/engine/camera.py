@@ -50,7 +50,8 @@ class Camera:
         self.subsampling = max(1, int(subsampling))
         self.resolution = tuple_handler(resolution, max_dim=2) if resolution else None
         self._setup_calibration(path=calibration)
-        self._setup_recorder(**record)
+        if record:
+            self._setup_recorder(**record)
         self._setup_debuger(**debug)
 
     def __len__(self) -> int:
