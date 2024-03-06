@@ -323,21 +323,21 @@ class Camera:
 
         return (w, h) if not reverse else (h, w)
 
-    def delay(self, value: int) -> bool:
+    def delay(self, value: int = None) -> bool:
         """
         Delays the execution for a specified time and checks for a key press.
 
         Parameters
         ----------
-        value : int
-            The delay time in milliseconds.
+        value : int, optional
+            The delay time in milliseconds, by default None.
 
         Returns
         -------
         bool
             True if no key 'q' is pressed within the delay time, otherwise False.
         """
-        key = cv2.waitKey(max(0, value)) & 0xFF
+        key = cv2.waitKey(max(0, value if value else self.wait)) & 0xFF
 
         # Check continue
         return True if not key == ord("q") else False
