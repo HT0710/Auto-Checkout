@@ -1,17 +1,16 @@
 from functools import cached_property
 from pathlib import Path, PosixPath
-from typing import Any, List, Tuple
+from typing import Dict, Tuple
 from datetime import datetime
 import random
 import shutil
-import psutil
 
 from tqdm import tqdm
 import cv2
 
-from ..utils import device_handler, tuple_handler
 from .processing import ImageProcessing
 from .labeling import AutoLabeling
+from ..utils import tuple_handler
 
 
 class DatasetGenerator:
@@ -22,9 +21,7 @@ class DatasetGenerator:
         save_name: str = None,
         image_size: int = 640,
         split_size: Tuple = (0.7, 0.2, 0.1),
-        model: str = "silueta",
-        device: str = "auto",
-        tensorrt: bool = False,
+        labeling: Dict = None,
     ) -> None:
         """
         Initialize DatasetGenerator.
@@ -42,9 +39,7 @@ class DatasetGenerator:
         self.save_path = self._check_save(save_path, save_name)
         self.image_size = image_size
         self.split_size = tuple_handler(split_size, max_dim=3)
-        self.labeler = AutoLabeling(
-            model=model, device=device_handler(device), tensorrt=tensorrt
-        )
+        self.labeler = AutoLabeling(**labeling)
         self.image_extensions = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"]
 
     @cached_property

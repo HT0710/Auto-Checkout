@@ -5,10 +5,10 @@
 # Dataset
 
 # Video folder path
-data_path: data/data_gen/videos
+data_path: data/object
 
 # Save folder path
-save_path: data/data_gen/dataset
+save_path: data/train
 
 # Save name (Default: using Date)
 save_name: null
@@ -22,17 +22,51 @@ split_size: [0.8, 0.2, 0]
 # Image size
 image_size: 640
 
-# Number of workers
-num_workers: 0.6
 
 # ------------
 # AutoLabeling
 
-# Rembg model. For more detail: https://github.com/danielgatis/rembg?tab=readme-ov-file#models
-model: u2net
+# Configuration for AutoLabeling
+labeling:
+  # Labeling method (Available: yolo, extract)
+  method: extract
 
-# Device for computing ('cpu' or 'cuda' or 'auto')
-device: auto
+  # Device for computing ('cpu' or 'cuda' or 'auto')
+  device: auto
 
-# Using TensorRT (CUDA only)
-tensorrt: false
+  # Configuration for extract method
+  extract:
+    # Rembg model. For more detail: https://github.com/danielgatis/rembg?tab=readme-ov-file#models
+    model: u2net
+
+    # Using TensorRT (CUDA only)
+    tensorrt: false
+
+  # Configuration for yolo method
+  yolo:
+    # Model weight path
+    weight: weights/detect.pt
+
+    # Confidence threshold for detection
+    conf: 0.25
+
+    # Intersection over Union
+    iou: 0.4
+
+    # Input size for the model
+    size: 640
+
+    # Use half precision (float16) for better inference
+    half: true
+
+    # Fuse model layer
+    fuse: true
+
+    # Using onnx model
+    onnx: false
+
+    # Use TorchDynamo, the latest method to speed up PyTorch code
+    optimize: true
+
+    # Backend to be used for model optimization
+    backend: null
