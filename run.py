@@ -3,12 +3,12 @@ import yaml
 import cv2
 
 from modules.utils import load_config
-from modules import CameraControler
+from modules import Controller
 
 traceback.install()
 
 
-def check_camera():
+def check_camera(idx_range: int):
     idx_list = [i for i in range(10) if cv2.VideoCapture(i).isOpened()]
 
     count = 0
@@ -57,12 +57,10 @@ def check_camera():
 
 def main():
 
-    check_camera()
+    check_camera(10)
 
-    # Define camera controler
-    controller = CameraControler(**load_config("configs/camera.yaml"))
+    controller = Controller(**load_config("configs/camera.yaml"))
 
-    # Run the controler
     controller.run()
 
 

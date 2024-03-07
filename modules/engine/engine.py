@@ -1,172 +1,310 @@
-from collections import defaultdict
-from typing import List
+from typing import Dict, Union
 
 import numpy as np
 import cv2
 
+from ..detection import ObjectDetector
+from ..detection import ArucoDetector
 from ..utils import load_config
-from .side import SideEngine
-from .top import TopEngine
-from .server import Server
+from .camera import Camera
 
 
-class CameraControler:
-    def __init__(self, top_ids: List[int] = None, side_ids: List[int] = None) -> None:
+class Engine:
+    def __init__(self, index: int, engine_configs: Dict) -> None:
         """
-        Initializes a CameraEngine object.
+        Initializes a TopEngine object.
 
         Parameters
         ----------
-        top_ids : List[int], optional
-            A list of integers representing the IDs of top cameras, by default None.
-        side_ids : List[int], optional
-            A list of integers representing the IDs of side cameras, by default None.
-        """
-        self.engines = {}
-
-        # Define camera configurations
-        camera_configs = [
-            (top_ids, "top", TopEngine, "configs/engine/top.yaml"),
-            (side_ids, "side", SideEngine, "configs/engine/side.yaml"),
-        ]
-
-        # Iterate over camera configurations and instantiate engines
-        for camera_ids, name, engine_class, config_file in camera_configs:
-            # If camera IDs are not provided, skip instantiation
-            if not camera_ids:
-                continue
-
-            # Create engine
-            engine = engine_class(
-                camera_ids=camera_ids,
-                engine_configs=load_config(config_file),
-            )
-
-            # Instantiate engine
-            self.engines[name] = {
-                "self": engine,
-                "cameras": [
-                    {"self": camera, "current": iter(camera)}
-                    for camera in engine.cameras
-                ],
-            }
-
-    def run(self) -> None:
-        """
-        Runs the camera capture loop for all cameras.
+        camera_ids : List[int]
+            A list of integers representing the IDs of cameras associated with this engine.
+        engine_configs : Dict
+            A dictionary containing engine configurations.
 
         Notes
         -----
-        This method iterates over all engines and their associated cameras, capturing frames
-        from each camera and displaying them using OpenCV. It continues until a camera's delay
-        limit is reached.
+        This method initializes a TopEngine object with cameras, ArUco detector, object detector,
+        and a deque for detecting history.
+        """
+        self.camera = Camera(device_id=index, **engine_configs["camera"])
+        self.object_detector = ObjectDetector(**engine_configs["detection"])
+        self.current_frame = iter(self.camera)
 
-        After the loop exits, it releases all camera resources.
+    def get_frame(self) -> np.ndarray:
+        return next(self.current_frame)
+
+    def process(self, image: np.ndarray) -> Union[np.ndarray, Dict]:
+        raise NotImplementedError()
+
+    def delay(self) -> bool:
+        return self.camera.delay()
+
+    def release(self) -> None:
+        self.camera.release()
+
+
+class TopEngine(Engine):
+    def __init__(self, index: int, engine_configs: Dict) -> None:
+        """
+        Initializes a TopEngine object.
+
+        Parameters
+        ----------
+        camera_ids : List[int]
+            A list of integers representing the IDs of cameras associated with this engine.
+        engine_configs : Dict
+            A dictionary containing engine configurations.
+
+        Notes
+        -----
+        This method initializes a TopEngine object with cameras, ArUco detector, object detector,
+        and a deque for detecting history.
+        """
+        super().__init__(index, engine_configs)
+        self.aruco_detector = ArucoDetector(**load_config("configs/aruco.yaml"))
+
+    def process(self, image: np.ndarray) -> Union[np.ndarray, Dict]:
+        """
+        Processing operations on the image.
+
+        Parameters
+        ----------
+        image : np.ndarray
+            Input image to be processed.
+
+        Returns
+        -------
+        np.ndarray
+            Processed image.
+
+        Notes
+        -----
+        This method performs ArUco marker detection, object detection, and draws
+        bounding boxes and text on the image. It also calculates and displays
+        the average count of detected objects.
         """
 
-        stop = False
+        # Create image clone
+        process_image = image.copy()
 
-        # Main loop for capturing frames from cameras
-        while not stop:
-            signal = Server.get("status")
+        # Detect aruco
+        self.aruco_detector.draw(
+            process_image, *self.aruco_detector.detect(process_image)
+        )
 
-            results = {"top": None, "side": []}
+        # Detect object
+        boxes = self.object_detector.detect(process_image)
 
-            frames = []
+        products = {}
 
-            for key, value in self.engines.items():
-                engine = value["self"]
+        center_points = []
 
-                for camera in value["cameras"]:
-                    frame = next(camera["current"])
+        for box in boxes:
+            # xyxy location
+            x1, y1, x2, y2, _, idx = map(int, box)
 
-                    # Perform callback on the engine
-                    if signal == "SCAN":
-                        output = engine.callback(frame)
+            conf = round(box[4], 2)
 
-                        frame = output["frame"]
-
-                        if key == "top":
-                            results["top"] = output["results"]
-
-                        if key == "side":
-                            results["side"].append(output["results"])
-
-                    frame = cv2.resize(frame, (0, 0), fx=0.7, fy=0.7)
-
-                    frames.append(frame)
-
-            review = np.concatenate(frames)
-
-            # Display frame
-            cv2.namedWindow("Review", cv2.WINDOW_GUI_NORMAL)
-            cv2.imshow("Review", review)
-
-            # Check for delay on each camera
-            if not all(
-                [
-                    camera["self"].delay(camera["self"].wait)
-                    for engine in self.engines.values()
-                    for camera in engine["cameras"]
-                ]
-            ):
-                stop = True
-
-            if signal != "SCAN":
-                continue
-
-            total = results["top"]
-
-            left, right = results["side"]
-
-            conflict = defaultdict(list)
-            conflict.update(right.copy())
-
-            products = defaultdict(int)
-
-            for key, value in left.items():
-                if key not in right:
-                    conflict[key].extend(value)
-
-                else:
-                    left_size, right_size = len(value), len(right[key])
-
-                    if left_size == right_size:
-                        products[key] += 1
-                        conflict.pop(key)
-
-                    if left_size > right_size:
-                        for _ in range(right_size):
-                            value.pop()
-                            conflict.pop(key)
-                            products[key] += 1
-
-                        conflict[key].extend(value)
-
-            for key, value in conflict.items():
-                products[key] += len(value)
-
-            # if len(products) > total:
-            #     for key, value in products.items():
-            #         for conf in value:
-            #             if conf < 0.7:
-            #                 products.pop(key)
-
-            if len(products) < total:
-                Server.set(
-                    "message",
-                    str({"code": "0", "detail": "Some products are undetectable."}),
-                )
-
-            Server.set(
-                "products",
-                str([{"code": k, "quantity": v} for k, v in products.items()]),
+            cv2.rectangle(
+                img=process_image,
+                pt1=(x1, y1),
+                pt2=(x2, y2),
+                color=(255, 255, 0),
+                thickness=2,
             )
-            # Server.set("message", "Detect successfully with x% certainty.")
 
-        # Release camera resources
-        [
-            camera["self"].release()
-            for engine in self.engines.values()
-            for camera in engine["cameras"]
-        ]
+            center = ((x1 + x2) // 2, (y1 + y2) // 2)
+
+            cv2.circle(process_image, center, 8, (255, 0, 255), -1)
+
+            center_points.append(center)
+
+            products[center] = conf
+
+        # Add text to frame
+        # cv2.putText(
+        #     img=process_image,
+        #     text=f"Count: {len(center_points)}",
+        #     org=(20, 50),
+        #     fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        #     fontScale=2,
+        #     color=(255, 255, 0),
+        #     thickness=3,
+        # )
+
+        cv2.putText(
+            img=process_image,
+            text="Top",
+            org=(20, 50),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=2,
+            color=(0, 0, 255),
+            thickness=5,
+        )
+
+        sorted_points_left = sorted(center_points, key=lambda p: (p[0], p[1]))
+
+        # for i, center in enumerate(sorted_points_left):
+        #     cv2.putText(
+        #         img=process_image,
+        #         text=f"{i}",
+        #         org=(center[0] - 50, center[1]),
+        #         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        #         fontScale=2,
+        #         color=(0, 255, 0),
+        #         thickness=4,
+        #     )
+
+        sorted_points_right = sorted(center_points, key=lambda p: (-p[0], p[1]))
+
+        # for i, center in enumerate(sorted_points_right):
+        #     cv2.putText(
+        #         img=process_image,
+        #         text=f"{i}",
+        #         org=(center[0] + 10, center[1]),
+        #         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        #         fontScale=2,
+        #         color=(0, 0, 255),
+        #         thickness=4,
+        #     )
+
+        sorted_products_left = {
+            key: products[key]
+            for key in sorted(products, key=lambda x: sorted_points_left.index(x))
+        }
+
+        sorted_products_right = {
+            key: products[key]
+            for key in sorted(products, key=lambda x: sorted_points_right.index(x))
+        }
+
+        return process_image, {
+            "left": sorted_products_left,
+            "right": sorted_products_right,
+        }
+
+
+class SideEngine(Engine):
+    def preprocess(self, image: np.ndarray) -> np.ndarray:
+        """
+        Processing operations on the image.
+
+        Parameters
+        ----------
+        image : np.ndarray
+            Input image to be processed.
+
+        Returns
+        -------
+        np.ndarray
+            Processed image.
+
+        Notes
+        -----
+        This method performs object detection and draws bounding boxes around detected objects.
+        """
+
+        # Create image clone
+        process_image = image.copy()
+
+        # Detect obejct
+        boxes = self.object_detector.detect(process_image)
+
+        # Products tracking
+        products = {}
+
+        for box in boxes:
+            # xyxy location
+            x1, y1, x2, y2, _, idx = map(int, box)
+
+            conf = round(box[4], 2)
+
+            center = ((x1 + x2) // 2, y2)
+
+            # cv2.circle(process_image, center, 8, (255, 0, 255), -1)
+
+            products[center] = (idx, conf)
+
+            cv2.rectangle(
+                img=process_image,
+                pt1=(x1, y1),
+                pt2=(x2, y2),
+                color=(255, 255, 0),
+                thickness=2,
+            )
+
+            cv2.putText(
+                img=process_image,
+                text=self.object_detector.classes[idx],
+                org=(x1 + 10, y1 + 30),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=1,
+                color=(255, 255, 0),
+                thickness=2,
+            )
+
+        return process_image, products
+
+
+class LeftEngine(SideEngine):
+    def process(self, image: np.ndarray) -> np.ndarray:
+        processed_image, products = self.preprocess(image)
+
+        cv2.putText(
+            img=processed_image,
+            text="Left",
+            org=(20, 50),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=2,
+            color=(255, 255, 0),
+            thickness=5,
+        )
+
+        sorted_products = dict(
+            sorted(products.items(), key=lambda x: (-x[0][1], x[0][0]))
+        )
+
+        for i, center in enumerate(sorted_products.keys()):
+            cv2.putText(
+                img=processed_image,
+                text=f"{i}",
+                org=center,
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=2,
+                color=(0, 255, 0),
+                thickness=4,
+            )
+
+        return processed_image, sorted_products
+
+
+class RightEngine(SideEngine):
+    def process(self, image: np.ndarray) -> np.ndarray:
+        processed_image, products = self.preprocess(image)
+
+        cv2.putText(
+            img=processed_image,
+            text="Right",
+            org=(20, 50),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=2,
+            color=(0, 255, 255),
+            thickness=5,
+        )
+
+        sorted_products = dict(
+            sorted(products.items(), key=lambda x: (-x[0][1], -x[0][0]))
+        )
+
+        for i, center in enumerate(sorted_products.keys()):
+            cv2.putText(
+                img=processed_image,
+                text=f"{i}",
+                org=center,
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=2,
+                color=(0, 0, 255),
+                thickness=4,
+            )
+
+        return processed_image, sorted_products
