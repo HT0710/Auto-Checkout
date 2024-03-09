@@ -9,7 +9,12 @@ traceback.install()
 
 
 def check_camera(idx_range: int):
-    idx_list = [i for i in range(10) if cv2.VideoCapture(i).isOpened()]
+    idx_list = [i for i in range(idx_range) if cv2.VideoCapture(i).isOpened()]
+
+    if len(idx_list) < 3:
+        raise ValueError(
+            f"The system requires at least 3 cameras to run. Only found {len(idx_list)}."
+        )
 
     count = 0
     cameras = {}
