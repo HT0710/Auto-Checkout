@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import Dict, Tuple
 import math
 
@@ -52,6 +53,30 @@ class Controller:
             if name == "top":
                 if hasattr(self, "products"):
                     for point, name in self.products.items():
+                        if name == 0:
+                            cv2.putText(
+                                img=frame,
+                                text=str("Unsure"),
+                                org=point,
+                                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                fontScale=1,
+                                color=(0, 255, 255),
+                                thickness=2,
+                            )
+                            continue
+
+                        if name == -1:
+                            cv2.putText(
+                                img=frame,
+                                text=str("Unknow"),
+                                org=point,
+                                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                fontScale=1,
+                                color=(0, 0, 255),
+                                thickness=2,
+                            )
+                            continue
+
                         cv2.putText(
                             img=frame,
                             text=str(name),
@@ -70,6 +95,7 @@ class Controller:
 
         # Display frame
         cv2.namedWindow("Review", cv2.WINDOW_GUI_NORMAL)
+        # cv2.resizeWindow("Review", 1920, 1080)
         cv2.imshow("Review", review)
 
         # Check for delay on each camera
@@ -92,26 +118,34 @@ class Controller:
 
         return normalized_data
 
-    def _calculate_distance(self, point1, point2):
-        x1, y1 = point1
-        x2, y2 = point2
+    def _calculate_distance(self, pa, pb):
+        x1, y1, x2, y2 = *pa, *pb
         distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         return distance
 
-    def _calculate_angle(ax, ay, bx, by):
+    def _calculate_angle(self, ax, ay, bx, by):
         # Calculate the vectors representing the lines
         m1, n1 = ay[0] - ax[0], ay[1] - ax[1]
         m2, n2 = by[0] - bx[0], by[1] - bx[1]
 
-        # Calculate the dot product of the vectors
+        # Calculate the dot product and cross product of the vectors
         dot_product = m1 * m2 + n1 * n2
+        cross_product = m1 * n2 - m2 * n1
 
         # Calculate the magnitude of the vectors
         magnitude1 = math.sqrt(m1**2 + n1**2)
         magnitude2 = math.sqrt(m2**2 + n2**2)
 
+        # If either magnitude is zero, return a default value (e.g., 0)
+        if magnitude1 * magnitude2 == 0:
+            return 0
+
         # Calculate the angle between the lines in radians
         angle_rad = math.acos(dot_product / (magnitude1 * magnitude2))
+
+        # Determine whether the angle is obtuse or acute based on the sign of the cross product
+        if cross_product < 0:
+            angle_rad = 2 * math.pi - angle_rad
 
         # Convert the angle to degrees
         angle_deg = angle_rad * 180 / math.pi
@@ -119,7 +153,10 @@ class Controller:
         return angle_deg
 
     def run(self) -> None:
+        Server.set("status", "SCAN")
         stop = False
+
+        size = self.engines["top"].camera.size()
 
         # Main loop for capturing frames from cameras
         while not stop:
@@ -131,6 +168,123 @@ class Controller:
                 continue
 
             top, left, right = results.values()
+
+            matrix = [[-1] * top["total"] for _ in range(2)]
+
+            checker = []
+
+            for i, point in enumerate(top["left"]):
+                if i == 0:
+                    anchor = point
+                    continue
+
+                distance = self._calculate_distance(pa=anchor, pb=point)
+
+                angle = self._calculate_angle(
+                    ax=anchor, ay=point, bx=anchor, by=(0, anchor[1])
+                )
+
+                checker.append((distance, angle))
+
+            if top["total"] < len(left):
+                continue
+
+            solved = 1
+            for i, (point, (idx, conf)) in enumerate(left.items()):
+                if i == 0:
+                    matrix[0][i] = self.classes[idx]
+                    anchor = point
+                    continue
+
+                distance = self._calculate_distance(pa=anchor, pb=point)
+
+                angle = self._calculate_angle(
+                    ax=anchor, ay=point, bx=anchor, by=(anchor[0], size[1])
+                )
+
+                candidates = [
+                    self._calculate_distance(ground_truth, (distance, angle))
+                    for ground_truth in checker
+                ]
+
+                best = min(candidates)
+
+                matrix[0][candidates.index(best) + solved] = (
+                    self.classes[idx] if best < 50 else -1
+                )
+                if best < 20:
+                    solved += 1
+                    checker.pop(candidates.index(best))
+
+            checker = []
+
+            for i, point in enumerate(top["right"]):
+                if i == 0:
+                    anchor = point
+                    continue
+
+                distance = self._calculate_distance(pa=anchor, pb=point)
+
+                angle = self._calculate_angle(
+                    ax=anchor, ay=point, bx=anchor, by=(size[0], anchor[1])
+                )
+
+                checker.append((distance, angle))
+
+            if top["total"] < len(right):
+                continue
+
+            for i, (point, (idx, conf)) in enumerate(right.items()):
+                if i == 0:
+                    matrix[1][i] = self.classes[idx]
+                    anchor = point
+                    continue
+
+                distance = self._calculate_distance(pa=anchor, pb=point)
+
+                angle = self._calculate_angle(
+                    ax=anchor, ay=point, bx=anchor, by=(anchor[0], size[1])
+                )
+
+                candidates = [
+                    self._calculate_distance(ground_truth, (distance, angle))
+                    for ground_truth in checker
+                ]
+
+                best = min(candidates)
+
+                # print(candidates)
+
+                matrix[1][candidates.index(best) + 1] = (
+                    self.classes[idx] if best < 50 else -1
+                )
+
+            # print(matrix)
+            print()
+
+            self.products = {}
+
+            for i, (point, left, right) in enumerate(
+                zip(top["left"], matrix[0], matrix[1][::-1])
+            ):
+                if left == right:
+                    self.products[point] = left
+
+                elif left == -1 and right == -1:
+                    self.products[point] = -1
+
+                elif left == -1:
+                    self.products[point] = right
+
+                elif right == -1:
+                    self.products[point] = left
+
+                else:
+                    self.products[point] = 0
+
+            # print(self.products)
+
+            continue
 
             checker = list(top["left"].keys())
 

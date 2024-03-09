@@ -33,7 +33,7 @@ class Engine:
     def get_frame(self) -> np.ndarray:
         return next(self.current_frame)
 
-    def process(self, image: np.ndarray) -> Union[np.ndarray, Dict]:
+    def detect(self, image: np.ndarray) -> Union[np.ndarray, Dict]:
         raise NotImplementedError()
 
     def delay(self) -> bool:
@@ -41,6 +41,68 @@ class Engine:
 
     def release(self) -> None:
         self.camera.release()
+
+
+class SideEngine(Engine):
+    def preprocess(self, image: np.ndarray) -> np.ndarray:
+        """
+        Processing operations on the image.
+
+        Parameters
+        ----------
+        image : np.ndarray
+            Input image to be processed.
+
+        Returns
+        -------
+        np.ndarray
+            Processed image.
+
+        Notes
+        -----
+        This method performs object detection and draws bounding boxes around detected objects.
+        """
+
+        # Create image clone
+        process_image = image.copy()
+
+        # Detect obejct
+        boxes = self.object_detector.detect(process_image)
+
+        # Products tracking
+        products = {}
+
+        for box in boxes:
+            # xyxy location
+            x1, y1, x2, y2, _, idx = map(int, box)
+
+            conf = round(box[4], 2)
+
+            center = ((x1 + x2) // 2, y2)
+
+            # cv2.circle(process_image, center, 8, (255, 0, 255), -1)
+
+            products[center] = (idx, conf)
+
+            cv2.rectangle(
+                img=process_image,
+                pt1=(x1, y1),
+                pt2=(x2, y2),
+                color=(255, 255, 0),
+                thickness=2,
+            )
+
+            cv2.putText(
+                img=process_image,
+                text=self.object_detector.classes[idx],
+                org=(x1 + 10, y1 + 30),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=1,
+                color=(255, 255, 0),
+                thickness=2,
+            )
+
+        return process_image, products
 
 
 class TopEngine(Engine):
@@ -168,82 +230,21 @@ class TopEngine(Engine):
         #         thickness=4,
         #     )
 
-        sorted_products_left = {
-            key: products[key]
-            for key in sorted(products, key=lambda x: sorted_points_left.index(x))
-        }
+        # sorted_products_left = {
+        #     key: products[key]
+        #     for key in sorted(products, key=lambda x: sorted_points_left.index(x))
+        # }
 
-        sorted_products_right = {
-            key: products[key]
-            for key in sorted(products, key=lambda x: sorted_points_right.index(x))
-        }
+        # sorted_products_right = {
+        #     key: products[key]
+        #     for key in sorted(products, key=lambda x: sorted_points_right.index(x))
+        # }
 
         return process_image, {
-            "left": sorted_products_left,
-            "right": sorted_products_right,
+            "total": len(products),
+            "left": sorted_points_left,
+            "right": sorted_points_right,
         }
-
-
-class SideEngine(Engine):
-    def preprocess(self, image: np.ndarray) -> np.ndarray:
-        """
-        Processing operations on the image.
-
-        Parameters
-        ----------
-        image : np.ndarray
-            Input image to be processed.
-
-        Returns
-        -------
-        np.ndarray
-            Processed image.
-
-        Notes
-        -----
-        This method performs object detection and draws bounding boxes around detected objects.
-        """
-
-        # Create image clone
-        process_image = image.copy()
-
-        # Detect obejct
-        boxes = self.object_detector.detect(process_image)
-
-        # Products tracking
-        products = {}
-
-        for box in boxes:
-            # xyxy location
-            x1, y1, x2, y2, _, idx = map(int, box)
-
-            conf = round(box[4], 2)
-
-            center = ((x1 + x2) // 2, y2)
-
-            # cv2.circle(process_image, center, 8, (255, 0, 255), -1)
-
-            products[center] = (idx, conf)
-
-            cv2.rectangle(
-                img=process_image,
-                pt1=(x1, y1),
-                pt2=(x2, y2),
-                color=(255, 255, 0),
-                thickness=2,
-            )
-
-            cv2.putText(
-                img=process_image,
-                text=self.object_detector.classes[idx],
-                org=(x1 + 10, y1 + 30),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=1,
-                color=(255, 255, 0),
-                thickness=2,
-            )
-
-        return process_image, products
 
 
 class LeftEngine(SideEngine):
@@ -264,16 +265,16 @@ class LeftEngine(SideEngine):
             sorted(products.items(), key=lambda x: (-x[0][1], x[0][0]))
         )
 
-        for i, center in enumerate(sorted_products.keys()):
-            cv2.putText(
-                img=processed_image,
-                text=f"{i}",
-                org=center,
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=2,
-                color=(0, 255, 0),
-                thickness=4,
-            )
+        # for i, center in enumerate(sorted_products.keys()):
+        #     cv2.putText(
+        #         img=processed_image,
+        #         text=f"{i}",
+        #         org=center,
+        #         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        #         fontScale=2,
+        #         color=(0, 255, 0),
+        #         thickness=4,
+        #     )
 
         return processed_image, sorted_products
 
@@ -296,15 +297,15 @@ class RightEngine(SideEngine):
             sorted(products.items(), key=lambda x: (-x[0][1], -x[0][0]))
         )
 
-        for i, center in enumerate(sorted_products.keys()):
-            cv2.putText(
-                img=processed_image,
-                text=f"{i}",
-                org=center,
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=2,
-                color=(0, 0, 255),
-                thickness=4,
-            )
+        # for i, center in enumerate(sorted_products.keys()):
+        #     cv2.putText(
+        #         img=processed_image,
+        #         text=f"{i}",
+        #         org=center,
+        #         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        #         fontScale=2,
+        #         color=(0, 0, 255),
+        #         thickness=4,
+        #     )
 
         return processed_image, sorted_products
