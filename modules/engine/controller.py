@@ -1,5 +1,4 @@
-from collections import OrderedDict
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 import math
 
 import numpy as np
@@ -87,36 +86,19 @@ class Controller:
                             thickness=2,
                         )
 
-            frame = cv2.resize(frame, (0, 0), fx=0.7, fy=0.7)
-
             frames.append(frame)
 
         review = np.concatenate(frames, axis=1)
 
         # Display frame
         cv2.namedWindow("Review", cv2.WINDOW_GUI_NORMAL)
-        # cv2.resizeWindow("Review", 1920, 1080)
+        cv2.resizeWindow("Review", 1440, 480)
         cv2.imshow("Review", review)
 
         # Check for delay on each camera
-        stop = (
-            True
-            if not all([engine.delay() for engine in self.engines.values()])
-            else False
-        )
+        stop = not all([engine.delay() for engine in self.engines.values()])
 
         return stop, results
-
-    def _min_max_normalize(self, data):
-        min_val = min(data)
-        max_val = max(data)
-
-        if min_val == max_val:
-            return [0] * len(data)
-
-        normalized_data = [round((x - min_val) / (max_val - min_val), 2) for x in data]
-
-        return normalized_data
 
     def _calculate_distance(self, pa, pb):
         x1, y1, x2, y2 = *pa, *pb
@@ -152,11 +134,59 @@ class Controller:
 
         return angle_deg
 
+    def _calculate_coordinate(self, point, anchor_point: Tuple, dead_point: Tuple):
+        distance = self._calculate_distance(pa=anchor_point, pb=point)
+
+        angle = self._calculate_angle(
+            ax=anchor_point, ay=point, bx=anchor_point, by=dead_point
+        )
+
+        return (distance, angle)
+
+    def _coordinates_mapping(self, target, data, height, width):
+        result = [-1] * len(target)
+
+        anchor = target.pop(0)
+        checker = [
+            self._calculate_coordinate(
+                point=current_point, anchor_point=anchor, dead_point=(0, anchor[1])
+            )
+            for current_point in target
+        ]
+
+        if len(target) < len(data):
+            return result
+
+        solved = 1
+        for i, (point, (idx, conf)) in enumerate(data.items()):
+            if i == 0:
+                result[i] = self.classes[idx]
+                anchor = point
+                continue
+
+            coord = self._calculate_coordinate(
+                point=point, anchor_point=anchor, dead_point=(anchor[0], height)
+            )
+
+            candidates = [
+                self._calculate_distance(pa=ground_truth, pb=coord)
+                for ground_truth in checker
+            ]
+
+            best = min(candidates)
+
+            for j in range(candidates.index(best) + 1):
+                checker[j] = (-1, -1)
+
+            result[candidates.index(best) + solved] = self.classes[idx]
+
+        return result
+
     def run(self) -> None:
         Server.set("status", "SCAN")
         stop = False
 
-        size = self.engines["top"].camera.size()
+        width, height = self.engines["top"].camera.size()
 
         # Main loop for capturing frames from cameras
         while not stop:
@@ -171,135 +201,62 @@ class Controller:
 
             matrix = [[-1] * top["total"] for _ in range(2)]
 
-            checker = []
-
-            for i, point in enumerate(top["left"]):
-                if i == 0:
-                    anchor = point
-                    continue
-
-                distance = self._calculate_distance(pa=anchor, pb=point)
-
-                angle = self._calculate_angle(
-                    ax=anchor, ay=point, bx=anchor, by=(0, anchor[1])
-                )
-
-                checker.append((distance, angle))
-
-            if top["total"] < len(left):
+            if not top["total"]:
                 continue
 
-            solved = 1
-            for i, (point, (idx, conf)) in enumerate(left.items()):
-                if i == 0:
-                    matrix[0][i] = self.classes[idx]
-                    anchor = point
-                    continue
+            matrix[0] = self._coordinates_mapping(
+                target=top["left"].copy(), data=left, height=height, width=width
+            )
 
-                distance = self._calculate_distance(pa=anchor, pb=point)
-
-                angle = self._calculate_angle(
-                    ax=anchor, ay=point, bx=anchor, by=(anchor[0], size[1])
+            data = top["right"].copy()
+            anchor = data.pop(0)
+            checker = [
+                self._calculate_coordinate(
+                    point=current_point,
+                    anchor_point=anchor,
+                    dead_point=(width, anchor[1]),
                 )
+                for current_point in data
+            ]
 
-                candidates = [
-                    self._calculate_distance(ground_truth, (distance, angle))
-                    for ground_truth in checker
-                ]
+            if top["total"] >= len(right):
+                solved = 1
+                for i, (point, (idx, conf)) in enumerate(right.items()):
+                    if i == 0:
+                        matrix[1][i] = self.classes[idx]
+                        anchor = point
+                        continue
 
-                best = min(candidates)
+                    coord = self._calculate_coordinate(
+                        point=point, anchor_point=anchor, dead_point=(anchor[0], height)
+                    )
 
-                matrix[0][candidates.index(best) + solved] = (
-                    self.classes[idx] if best < 50 else -1
-                )
-                if best < 20:
-                    solved += 1
-                    checker.pop(candidates.index(best))
+                    candidates = [
+                        self._calculate_distance(pa=ground_truth, pb=coord)
+                        for ground_truth in checker
+                    ]
 
-            checker = []
+                    best = min(candidates)
 
-            for i, point in enumerate(top["right"]):
-                if i == 0:
-                    anchor = point
-                    continue
+                    for j in range(candidates.index(best) + 1):
+                        checker[j] = (-1, -1)
 
-                distance = self._calculate_distance(pa=anchor, pb=point)
-
-                angle = self._calculate_angle(
-                    ax=anchor, ay=point, bx=anchor, by=(size[0], anchor[1])
-                )
-
-                checker.append((distance, angle))
-
-            if top["total"] < len(right):
-                continue
-
-            for i, (point, (idx, conf)) in enumerate(right.items()):
-                if i == 0:
-                    matrix[1][i] = self.classes[idx]
-                    anchor = point
-                    continue
-
-                distance = self._calculate_distance(pa=anchor, pb=point)
-
-                angle = self._calculate_angle(
-                    ax=anchor, ay=point, bx=anchor, by=(anchor[0], size[1])
-                )
-
-                candidates = [
-                    self._calculate_distance(ground_truth, (distance, angle))
-                    for ground_truth in checker
-                ]
-
-                best = min(candidates)
-
-                # print(candidates)
-
-                matrix[1][candidates.index(best) + 1] = (
-                    self.classes[idx] if best < 50 else -1
-                )
+                    matrix[1][candidates.index(best) + solved] = self.classes[idx]
 
             # print(matrix)
             print()
 
             self.products = {}
 
-            for i, (point, left, right) in enumerate(
-                zip(top["left"], matrix[0], matrix[1][::-1])
-            ):
-                if left == right:
-                    self.products[point] = left
-
-                elif left == -1 and right == -1:
-                    self.products[point] = -1
-
-                elif left == -1:
-                    self.products[point] = right
-
-                elif right == -1:
-                    self.products[point] = left
-
+            for point, left, right in zip(top["left"], matrix[0], matrix[1][::-1]):
+                if left == right or left == -1 or right == -1:
+                    self.products[point] = left if left != -1 else right
                 else:
                     self.products[point] = 0
 
             # print(self.products)
 
             continue
-
-            checker = list(top["left"].keys())
-
-            self.products = {}
-
-            for (l_idx, l_conf), (r_idx, r_conf) in zip(left.values(), right.values()):
-                if not checker:
-                    break
-
-                self.products[checker.pop(0)] = self.classes[l_idx]
-
-                if not checker:
-                    break
-
-                self.products[checker.pop(-1)] = self.classes[r_idx]
 
             # Server.set(
             #     "products",
