@@ -1,4 +1,5 @@
-from typing import Dict, List, Tuple
+from collections import defaultdict
+from typing import Dict, Tuple
 import math
 
 import numpy as np
@@ -36,7 +37,15 @@ class Controller:
             for name, engine, idx, config in _engines_initialize
         }
 
-        self.classes = self.engines["left"].object_detector.classes
+        self.classes = [
+            "8935049500148",
+            "8934588662119",
+            "8935049501541",
+            "8934588133138",
+            "8934588013133",
+            "8934588012112",
+            "8935049501718",
+        ]
 
     def _show(self, signal: str) -> Tuple[bool, Dict]:
         results = {}
@@ -256,13 +265,23 @@ class Controller:
 
             # print(self.products)
 
-            continue
+            checkout = defaultdict(int)
 
-            # Server.set(
-            #     "products",
-            #     str([{"code": k, "quantity": v} for v in self.products.values()]),
-            # )
-            # Server.set("message", "Detect successfully with x% certainty.")
+            for item in self.products.values():
+                if item in [-1, 0]:
+                    continue
+
+                checkout[item] += 1
+
+            if len(checkout) < top["total"]:
+                Server.set("message", "1")
+
+            Server.set(
+                "products",
+                str([{"code": k, "quantity": v} for k, v in checkout]),
+            )
+
+            Server.set("message", "0")
 
         # Release camera resources
         [engine.release() for engine in self.engines.values()]
