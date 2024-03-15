@@ -24,7 +24,59 @@ class ImageProcessing:
         Returns:
             np.ndarray: A NumPy array representing the resized image.
         """
-        return cv2.resize(image, tuple_handler(size, 2))
+        return cv2.resize(image, tuple_handler(size, 2), interpolation=cv2.INTER_CUBIC)
+
+    @staticmethod
+    def center_crop(image: np.ndarray) -> np.ndarray:
+        """
+        Performs a center crop on the input image.
+
+        Parameters
+        ----------
+        image : np.ndarray
+            The input image as a NumPy array.
+
+        Returns
+        -------
+        np.ndarray
+            The center-cropped image.
+        """
+        img_h, img_w = image.shape[:2]
+
+        top = (img_h - img_w) // 2 if img_h > img_w else 0
+
+        bottom = top + img_w if img_h > img_w else img_h
+
+        left = (img_w - img_h) // 2 if img_w > img_h else 0
+
+        right = left + img_h if img_w > img_h else img_w
+
+        return image[top:bottom, left:right]
+
+    @staticmethod
+    def crop_border(image: np.ndarray, crop_rate: int) -> np.ndarray:
+        """
+        Removes borders from the input image based on the specified crop rate.
+
+        Parameters
+        ----------
+        image : np.ndarray
+            The input image as a NumPy array.
+        crop_rate : int
+            The percentage of border to be cropped from each side of the image.
+            For example, if `crop_rate` is 10, it will remove 10% of the border
+            from each side of the image.
+
+        Returns
+        -------
+        np.ndarray
+            The image with borders cropped based on the specified crop rate.
+        """
+        img_h, img_w = image.shape[:2]
+
+        crop_h, crop_w = map(int, (x * crop_rate / 100 for x in (img_h, img_w)))
+
+        return image[crop_h : img_h - crop_h, crop_w : img_w - crop_w]
 
     @staticmethod
     def add_border(
